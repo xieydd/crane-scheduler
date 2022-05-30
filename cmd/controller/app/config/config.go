@@ -1,16 +1,20 @@
 package config
 
 import (
+	"github.com/gocrane/crane-scheduler/pkg/webhooks"
 	"k8s.io/client-go/informers"
 	clientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 
 	componentbaseconfig "k8s.io/component-base/config"
 
 	policy "github.com/gocrane/crane-scheduler/pkg/plugins/apis/policy"
 
+	craneclientset "git.woa.com/crane/api/pkg/generated/clientset/versioned"
+	craneinfromers "git.woa.com/crane/api/pkg/generated/informers/externalversions"
 	annotatorconfig "github.com/gocrane/crane-scheduler/pkg/controller/annotator/config"
-	prom "github.com/gocrane/crane-scheduler/pkg/controller/prometheus"
+	"github.com/gocrane/crane-scheduler/pkg/controller/metrics"
 )
 
 // Config is the main context object for crane scheduler controller.
@@ -21,16 +25,24 @@ type Config struct {
 	LeaderElection *componentbaseconfig.LeaderElectionConfiguration
 	// KubeInformerFactory gives access to kubernetes informers for the controller.
 	KubeInformerFactory informers.SharedInformerFactory
+	// CraneInformerFactory gives access to crane scheduling informers for the controller.
+	CraneInformerFactory craneinfromers.SharedInformerFactory
+	// CraneClient is the crane crd client.
+	CraneClient craneclientset.Interface
 	// KubeClient is the general kube client.
 	KubeClient clientset.Interface
-	// PromClient is used for getting metric data from Prometheus.
-	PromClient prom.PromClient
+	// RestConfig
+	RestConfig *rest.Config
+	// MetricsClient is used for getting metric data from data source.
+	MetricsClient metrics.MetricClient
 	// Policy is a collection of scheduler policies.
 	Policy *policy.DynamicSchedulerPolicy
 	// EventRecorder is the event sink
 	EventRecorder record.EventRecorder
 	// LeaderElectionClient is the client used for leader election
 	LeaderElectionClient *clientset.Clientset
+	// WebhookConfig
+	WebhookConfig webhooks.Config
 }
 
 type completedConfig struct {

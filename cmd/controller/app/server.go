@@ -3,23 +3,46 @@ package app
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/uuid"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/component-base/version"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	schedulingapi "git.woa.com/crane/api/scheduling/v1alpha1"
 
 	"github.com/gocrane/crane-scheduler/cmd/controller/app/config"
 	"github.com/gocrane/crane-scheduler/cmd/controller/app/options"
 	"github.com/gocrane/crane-scheduler/pkg/controller/annotator"
+	"github.com/gocrane/crane-scheduler/pkg/metrics"
+	_ "github.com/gocrane/crane-scheduler/pkg/plugins/apis/policy/scheme"
+	pluginsapischeme "github.com/gocrane/crane-scheduler/pkg/plugins/apis/policy/scheme"
+	"github.com/gocrane/crane-scheduler/pkg/webhooks"
 )
 
+var (
+	scheme = runtime.NewScheme()
+)
+
+func init() {
+	pluginsapischeme.AddToScheme(scheme)
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(schedulingapi.AddToScheme(scheme))
+}
+
 // NewControllerCommand creates a *cobra.Command object with default parameters
-func NewControllerCommand() *cobra.Command {
+func NewControllerCommand(ctx context.Context) *cobra.Command {
 	o, err := options.NewOptions()
 	if err != nil {
 		klog.Fatalf("unable to initialize command options: %v", err)
@@ -28,7 +51,7 @@ func NewControllerCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "controller",
 		Long: `The Crane Scheduler Controller is a kubernetes controller, which is used for annotating
-		nodes with real load imformation sourced from Prometheus defaultly. `,
+		nodes with real load information sourced from metric datasource.`,
 		Run: func(cmd *cobra.Command, args []string) {
 
 			c, err := o.Config()
@@ -37,8 +60,7 @@ func NewControllerCommand() *cobra.Command {
 				os.Exit(1)
 			}
 
-			stopCh := make(chan struct{})
-			if err := Run(c.Complete(), stopCh); err != nil {
+			if err := Run(c.Complete(), ctx); err != nil {
 				fmt.Fprintf(os.Stderr, "%v\n", err)
 				os.Exit(1)
 			}
@@ -54,23 +76,67 @@ func NewControllerCommand() *cobra.Command {
 }
 
 // Run executes controller based on the given configuration.
-func Run(cc *config.CompletedConfig, stopCh <-chan struct{}) error {
+func Run(cc *config.CompletedConfig, ctx context.Context) error {
 
 	klog.Infof("Starting Controller version %+v", version.Get())
+
+	metrics.RegisterController()
+	metrics.RegisterDataSource()
+
+	http.Handle("/metrics", promhttp.Handler())
+	go func() {
+		err := http.ListenAndServe(":8088", nil)
+		if err != nil {
+			klog.Error(err)
+			return
+		}
+	}()
+
+	// Setup a Manager
+	if cc.WebhookConfig.Enabled {
+		mgr, err := manager.New(cc.RestConfig, manager.Options{
+			Scheme:             scheme,
+			MetricsBindAddress: "0",
+			Host:               cc.WebhookConfig.HookHost,
+			Port:               cc.WebhookConfig.HookPort,
+			CertDir:            cc.WebhookConfig.HookCertDir,
+		})
+		if err != nil {
+			klog.Fatal(err)
+		}
+
+		// Setup webhooks
+		hookServer := mgr.GetWebhookServer()
+
+		if certDir := os.Getenv("WEBHOOK_CERT_DIR"); len(certDir) > 0 {
+			hookServer.CertDir = certDir
+		}
+
+		hookServer.Register("/mutate-pod", &webhook.Admission{Handler: &webhooks.PodMutate{Client: mgr.GetClient()}})
+		klog.Infof("webhook server started at %v:%v", hookServer.Host, hookServer.Port)
+		go func() {
+			if err := mgr.Start(ctx); err != nil {
+				klog.Fatal(err)
+			}
+		}()
+	}
 
 	run := func(ctx context.Context) {
 		annotatorController := annotator.NewNodeAnnotator(
 			cc.KubeInformerFactory.Core().V1().Nodes(),
 			cc.KubeInformerFactory.Core().V1().Events(),
+			cc.CraneInformerFactory.Scheduling().V1alpha1().ClusterNodeResourcePolicies(),
+			cc.CraneInformerFactory.Scheduling().V1alpha1().NodeResourcePolicies(),
 			cc.KubeClient,
-			cc.PromClient,
+			cc.MetricsClient,
 			*cc.Policy,
 			cc.AnnotatorConfig.BindingHeapSize,
 		)
 
-		cc.KubeInformerFactory.Start(stopCh)
+		cc.KubeInformerFactory.Start(ctx.Done())
+		cc.CraneInformerFactory.Start(ctx.Done())
 
-		panic(annotatorController.Run(int(cc.AnnotatorConfig.ConcurrentSyncs), stopCh))
+		panic(annotatorController.Run(int(cc.AnnotatorConfig.ConcurrentSyncs), ctx.Done()))
 	}
 
 	if !cc.LeaderElection.LeaderElect {

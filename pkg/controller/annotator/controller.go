@@ -12,9 +12,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	policy "github.com/gocrane/crane-scheduler/pkg/plugins/apis/policy"
-
-	prom "github.com/gocrane/crane-scheduler/pkg/controller/prometheus"
+	craneschedinformers "git.woa.com/crane/api/pkg/generated/informers/externalversions/scheduling/v1alpha1"
+	craneschedlisters "git.woa.com/crane/api/pkg/generated/listers/scheduling/v1alpha1"
+	"github.com/gocrane/crane-scheduler/pkg/controller/metrics"
+	"github.com/gocrane/crane-scheduler/pkg/plugins/apis/policy"
 )
 
 // Controller is Controller for node annotator.
@@ -27,8 +28,16 @@ type Controller struct {
 	eventInformerSynced cache.InformerSynced
 	eventLister         corelisters.EventLister
 
-	kubeClient clientset.Interface
-	promClient prom.PromClient
+	cnrpInformer       craneschedinformers.ClusterNodeResourcePolicyInformer
+	cnrpInformerSynced cache.InformerSynced
+	cnrpLister         craneschedlisters.ClusterNodeResourcePolicyLister
+
+	nrpInformer       craneschedinformers.NodeResourcePolicyInformer
+	nrpInformerSynced cache.InformerSynced
+	nrpLister         craneschedlisters.NodeResourcePolicyLister
+
+	kubeClient   clientset.Interface
+	metricClient metrics.MetricClient
 
 	policy         policy.DynamicSchedulerPolicy
 	bindingRecords *BindingRecords
@@ -38,22 +47,30 @@ type Controller struct {
 func NewNodeAnnotator(
 	nodeInformer coreinformers.NodeInformer,
 	eventInformer coreinformers.EventInformer,
+	cnrpInformer craneschedinformers.ClusterNodeResourcePolicyInformer,
+	nrpInformer craneschedinformers.NodeResourcePolicyInformer,
 	kubeClient clientset.Interface,
-	promClient prom.PromClient,
+	metricClient metrics.MetricClient,
 	policy policy.DynamicSchedulerPolicy,
-	bingdingHeapSize int32,
+	bindingHeapSize int32,
 ) *Controller {
 	return &Controller{
 		nodeInformer:        nodeInformer,
 		nodeInformerSynced:  nodeInformer.Informer().HasSynced,
 		nodeLister:          nodeInformer.Lister(),
+		cnrpInformer:        cnrpInformer,
+		cnrpInformerSynced:  cnrpInformer.Informer().HasSynced,
+		cnrpLister:          cnrpInformer.Lister(),
+		nrpInformer:         nrpInformer,
+		nrpInformerSynced:   nrpInformer.Informer().HasSynced,
+		nrpLister:           nrpInformer.Lister(),
 		eventInformer:       eventInformer,
 		eventInformerSynced: eventInformer.Informer().HasSynced,
 		eventLister:         eventInformer.Lister(),
 		kubeClient:          kubeClient,
-		promClient:          promClient,
+		metricClient:        metricClient,
 		policy:              policy,
-		bindingRecords:      NewBindingRecords(bingdingHeapSize, getMaxHotVauleTimeRange(policy.Spec.HotValue)),
+		bindingRecords:      NewBindingRecords(bindingHeapSize, getMaxHotVauleTimeRange(policy.Spec.HotValue)),
 	}
 }
 
@@ -66,7 +83,10 @@ func (c *Controller) Run(worker int, stopCh <-chan struct{}) error {
 
 	nodeController := newNodeController(c)
 
-	if !cache.WaitForCacheSync(stopCh, c.nodeInformerSynced, c.eventInformerSynced) {
+	cnrpController := newClusterNodeResourcePolicyController(c)
+	c.cnrpInformer.Informer().AddEventHandler(cnrpController.handles())
+
+	if !cache.WaitForCacheSync(stopCh, c.nodeInformerSynced, c.eventInformerSynced, c.cnrpInformerSynced) {
 		return fmt.Errorf("failed to wait for cache sync for annotator")
 	}
 	klog.Info("Caches are synced for controller")
@@ -74,6 +94,7 @@ func (c *Controller) Run(worker int, stopCh <-chan struct{}) error {
 	for i := 0; i < worker; i++ {
 		go wait.Until(nodeController.Run, time.Second, stopCh)
 		go wait.Until(eventController.Run, time.Second, stopCh)
+		go wait.Until(cnrpController.Run, time.Second, stopCh)
 	}
 
 	go wait.Until(c.bindingRecords.BindingsGC, time.Minute, stopCh)

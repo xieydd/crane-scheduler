@@ -55,8 +55,13 @@ SHELL = /usr/bin/env bash -o pipefail
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-##@ Development
+.PHONY: manifests
+manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
+	go mod vendor; \
+    $(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" rbac:roleName=manager-role crd webhook paths="./vendor/git.woa.com/crane/api/scheduling/..." output:crd:artifacts:config=deploy/manifests; \
+    rm -rf vendor
 
+##@ Development
 .PHONY: fmt
 fmt: ## Run go fmt against code.
 	go fmt ./...
@@ -88,6 +93,10 @@ lint: golangci-lint  ## Run golang lint against code
       -E errcheck \
       -E structcheck
 
+.PHONY: codegen
+codegen: fmt vet
+	hack/update-all.sh
+
 .PHONY: test
 test: fmt vet lint ## Run tests.
 	go test -coverprofile coverage.out -covermode=atomic ./...
@@ -96,7 +105,7 @@ test: fmt vet lint ## Run tests.
 build: scheduler controller
 
 .PHONY: all
-all: test scheduler controller
+all: codegen test scheduler controller
 
 .PHONY: scheduler
 scheduler: ## Build binary with the crane scheduler.
@@ -178,4 +187,19 @@ ifeq (, $(shell which goimports))
 GO_IMPORTS=$(shell go env GOPATH)/bin/goimports
 else
 GO_IMPORTS=$(shell which goimports)
+endif
+
+controller-gen:
+ifeq (, $(shell which controller-gen))
+	@{ \
+	set -e ;\
+	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$CONTROLLER_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.7.0 ;\
+	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
+	}
+CONTROLLER_GEN=$(shell go env GOPATH)/bin/controller-gen
+else
+CONTROLLER_GEN=$(shell which controller-gen)
 endif

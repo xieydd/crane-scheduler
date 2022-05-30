@@ -1,0 +1,11 @@
+apiVersion: scheduling.crane.io/v1alpha1
+kind: CraneSchedulerConfiguration
+metadata:
+  name: crane # 固定的，就叫 crane，不能写其他的
+spec:
+  scheduleApplyScope:
+    clusterScope: false # 默认 false，不在整个集群范围生效，优先级最大，如果是 true，所有pod的调度都会用 新调度逻辑 生效
+    namespaceScopeSelector: # 选择新 调度器作用的namespace
+      namespaces: # map, key is namespace, value is bool
+        kube-system: true
+        crane-system: true

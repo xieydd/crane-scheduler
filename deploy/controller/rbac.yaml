@@ -1,9 +1,3 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: crane-system
-
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -41,13 +35,26 @@ rules:
   - create
   - get
   - update
+- apiGroups:
+    - "scheduling.crane.io"
+  resources:
+    - clusternoderesourcepolicies
+    - noderesourcepolicies
+    - craneschedulerconfigurations
+  verbs:
+    - get
+    - list
+    - watch
+    - update
+    - create
+    - patch
 
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: crane-scheduler-controller
-  namespace: crane-system
+  namespace: kube-system
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -61,4 +68,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: crane-scheduler-controller
-  namespace: crane-system
+  namespace: kube-system

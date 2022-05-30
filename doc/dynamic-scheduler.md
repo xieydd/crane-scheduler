@@ -17,7 +17,7 @@ As shown above, Dynamic scheduler relies on `Prometheus` and `Node-exporter` to 
 - `Dynamic plugin` reads the load data directly from the node's annotation, filters and scores candidates based on a simple algorithm.
 
 ###  Scheduler Policy
-Dynamic provides a default [scheduler policy](../deploy/manifests/policy.yaml) and supports user-defined policies. The default policy reies on following metrics:
+Dynamic provides a default [scheduler policy](../deploy/controller/policy.yaml) and supports user-defined policies. The default policy reies on following metrics:
 - `cpu_usage_avg_5m` 
 - `cpu_usage_max_avg_1h`
 - `cpu_usage_max_avg_1d`

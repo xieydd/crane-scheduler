@@ -6,6 +6,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -27,6 +28,8 @@ func newEventController(c *Controller) *eventController {
 
 func (e *eventController) Run() {
 	defer e.queue.ShutDown()
+	defer runtime.HandleCrash()
+
 	klog.Infof("Start to reconcile EVENT events")
 
 	for e.processNextWorkItem() {
@@ -128,18 +131,18 @@ func translateEventToBinding(event *v1.Event) (*Binding, error) {
 		return nil, err
 	}
 
-	var lasteOccuredTime int64
+	var lastOccuredTime int64
 
 	if event.Count == 0 {
-		lasteOccuredTime = event.EventTime.Unix()
+		lastOccuredTime = event.EventTime.Unix()
 	} else {
-		lasteOccuredTime = event.LastTimestamp.Unix()
+		lastOccuredTime = event.LastTimestamp.Unix()
 	}
 
 	return &Binding{
 		Node:      nodeName,
 		Namespace: namespace,
 		PodName:   name,
-		Timestamp: lasteOccuredTime,
+		Timestamp: lastOccuredTime,
 	}, nil
 }

@@ -1,0 +1,24 @@
+apiVersion: scheduling.crane.io/v1alpha1
+kind: ClusterNodeResourcePolicy
+metadata:
+  name: housekeeper-policy # name 可以是一组节点公共属性来命名，比如都是 托管节点，或者都是 托管节点-大机型等，不能重名
+spec:
+  applyMode: annotation # 默认就填这个，目前就支持annotation
+  nodeSelector: # 用来选取一组相同配置的节点，比如下面是用来选取 housekeeper 节点的标识label selector; 前端需要将 label 进行填充，取决于用户具体按照什么标签筛选一组节点
+    matchLabels:
+      cloud.tencent.com/provider: tencentcloud
+  template:
+    spec:
+      resourceExpansionStrategyType: static # 默认填这个
+      staticResourceExpansion: # 节点的资源 扩大系数
+        ratios: # map,
+          cpu: "1.5"  # 节点cpu 的扩大系数，比如 1.5 倍
+          memory: "1.2" # 节点memory 的扩大系数，比如 1.2 倍
+      targetLoadThreshold: # 节点的负载阈值，即目标利用率，所有的利用率指标是 且 的关系，调度器根据这些指标进行过滤
+        percents: # map, 百分位值
+          cpu: 60  # 60%
+          memory: 70 # 70%
+          cpu_usage_avg_5m: 60 # 表示使用 指标 cpu_usage_avg_5m 作为目标阈值，阈值为 60%
+          cpu_usage_max_avg_1h: 70 # 表示使用 指标 cpu_usage_max_avg_1h 作为目标阈值，阈值为 70%
+          mem_usage_avg_5m: 65 # 表示使用 指标 mem_usage_avg_5m 作为目标阈值，阈值为 65%
+          mem_usage_max_avg_1h: 75 # 表示使用 指标 mem_usage_max_avg_1h 作为目标阈值，阈值为 75%

@@ -46,7 +46,7 @@ func (b *BindingHeap) Push(x interface{}) {
 }
 
 // BindingRecords relizes an Binding heap, which limits heap size,
-// and recycles automatically, contributing to store latest and least imformation.
+// and recycles automatically, contributing to store latest and least information.
 type BindingRecords struct {
 	size        int32
 	bindings    *BindingHeap

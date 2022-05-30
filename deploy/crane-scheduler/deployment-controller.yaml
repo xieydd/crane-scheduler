@@ -1,0 +1,68 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: crane-scheduler-controller
+  name: crane-scheduler-controller
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crane-scheduler-controller
+  template:
+    metadata:
+      labels:
+        app: crane-scheduler-controller
+    spec:
+      serviceAccountName: crane-scheduler
+      containers:
+        - name: controller
+          env:
+            - name: TZ
+              value: Asia/Shanghai
+          command:
+            - /controller
+            - --policy-config-path=/data/policy.yaml
+            - --leader-elect-resource-namespace=kube-system
+            - --provider=qcloud
+            - --datasource=qcloudmonitor
+            - --qmonitor-credentials-clusterid=cls-8d756ixr
+            - --qmonitor-credentials-appid=1251707795
+            - --v=4
+          image: docker.io/gocrane/crane-scheduler-controller:v0.4.1
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - mountPath: /data
+              name: crane-scheduler-policy
+            - mountPath: /tmp/k8s-webhook-server/serving-certs
+              name: cert
+              readOnly: true
+          resources:
+            requests:
+              cpu: 200m
+              memory: 200Mi
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      volumes:
+        - name: cert
+          secret:
+            defaultMode: 420
+            secretName: crane-scheduler-webhook-server-tls
+        - configMap:
+            defaultMode: 420
+            name: crane-scheduler-policy
+          name: crane-scheduler-policy
+
+
+---
+apiVersion: v1
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURkRENDQWx5Z0F3SUJBZ0lKQU5vcHFZYXllV0ZVTUEwR0NTcUdTSWIzRFFFQkJRVUFNQkF4RGpBTUJnTlYKQkFNTUJXTnlZVzVsTUI0WERUSXlNRFl4TkRBM05USXdPVm9YRFRNeU1EWXhNVEEzTlRJd09Wb3dOVEV6TURFRwpBMVVFQXd3cVkzSmhibVV0YzJOb1pXUjFiR1Z5TFdOdmJuUnliMnhzWlhJdWEzVmlaUzF6ZVhOMFpXMHVjM1pqCk1JSUJJakFOQmdrcWhraUc5dzBCQVFFRkFBT0NBUThBTUlJQkNnS0NBUUVBMTFEbmpEVGpKNHJTVmVhNWhrQkYKcXhuLzI5YWRHM3JIc2s2RENNTW9QczgwZVRFekN1c3ZYZFVzcmRNdFUvMXZwVS9GVmYxVXh4OWw1TE4rbFZ1VQpyTklHZjRYNjh2dllCaWdud2JCU3l4bHJ5U2hKZUJBVGlCZ0xoOVNHMUtTbnZyYVQ0VGYxOWtEWHZqMzJCY3ZuCjdPS1VBbUpMSVdrQ0VidldkV2ZiT2M0cHBwdEhEaWNENHhRTWdkNWt1NjdGVWR0Q2RyNVN6ek1wcnpaVUZ0TjAKczRUaFlFa1BLSmZ6enJqdmJSTStOcEVSaGZDc2VGZmdzREZpWHYvalUyMG5KR004cWZDU2RDY2JRQVlQYnI4NQpWWk92eTV2WVN2UVp5b29qZ1ZEbC9ybUlZZVlQRUI1bHc3NERyRWdnVGFMcnFoR3MxSkVrUm84QlgyU0Y5K1dUClNRSURBUUFCbzRHck1JR29NQWtHQTFVZEV3UUNNQUF3Q3dZRFZSMFBCQVFEQWdYZ01CMEdBMVVkSlFRV01CUUcKQ0NzR0FRVUZCd01DQmdnckJnRUZCUWNEQVRCdkJnTlZIUkVFYURCbWdpcGpjbUZ1WlMxelkyaGxaSFZzWlhJdApZMjl1ZEhKdmJHeGxjaTVyZFdKbExYTjVjM1JsYlM1emRtT0NPR055WVc1bExYTmphR1ZrZFd4bGNpMWpiMjUwCmNtOXNiR1Z5TG10MVltVXRjM2x6ZEdWdExuTjJZeTVqYkhWemRHVnlMbXh2WTJGc01BMEdDU3FHU0liM0RRRUIKQlFVQUE0SUJBUUFJMFFrcmRnZlJZUFpGZHNnZ3Y5RStMR3V2MXkvanlUanJRa0Y2QklkNHJhYnlrc0Y3QXlzOQp3KzQrZ3dMSkU1VllNVTV0Vi9qR0hWb0lJR29MbkhCbDZ1Wm9Ea1lBQkRIVHIrQnhrWTRSSUdQS2Ira243R1FiCmptK05QM0hPb0ZkbC9oWmxFMGpoVlFkWXBZcFBKYWdaRTNkcnNiNW9abTV0L3RLdmNoMVl0OHYvb2xGUlJhaDIKL0FMSDdrcU95TnB3eEZJeW9jMUZZSEh0RnBpYWdoRnNwUGNsenY4cHNTRjVUNUluWmRncThYejk1U1hlOWppVwp6bno0OURGL3UrTjFpSHBYWjJhQjVMdUhvRmRXYisyMGMrZVRzdEd4YlpsNEpoazFQYzNNUk90aE1kYnhJVnRVCk1MalJnWGZZMDdvOXF6QnQ1M2ZXamJzQVI2Mk92ZkgzCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+  tls.key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb2dJQkFBS0NBUUVBMTFEbmpEVGpKNHJTVmVhNWhrQkZxeG4vMjlhZEczckhzazZEQ01Nb1BzODBlVEV6CkN1c3ZYZFVzcmRNdFUvMXZwVS9GVmYxVXh4OWw1TE4rbFZ1VXJOSUdmNFg2OHZ2WUJpZ253YkJTeXhscnlTaEoKZUJBVGlCZ0xoOVNHMUtTbnZyYVQ0VGYxOWtEWHZqMzJCY3ZuN09LVUFtSkxJV2tDRWJ2V2RXZmJPYzRwcHB0SApEaWNENHhRTWdkNWt1NjdGVWR0Q2RyNVN6ek1wcnpaVUZ0TjBzNFRoWUVrUEtKZnp6cmp2YlJNK05wRVJoZkNzCmVGZmdzREZpWHYvalUyMG5KR004cWZDU2RDY2JRQVlQYnI4NVZaT3Z5NXZZU3ZRWnlvb2pnVkRsL3JtSVllWVAKRUI1bHc3NERyRWdnVGFMcnFoR3MxSkVrUm84QlgyU0Y5K1dUU1FJREFRQUJBb0lCQUhOajVsTmJYSWtxZW9LUwp2Y1pXMTM5VTFhdkpIalZGM1pPUFErWUVRS000aEZTV3ExWWtxQ1BQUkx4N09nV1RBcXhEVGV4QmNaZXRHZnd3CnZadnBrb256bkl2bkQ0LzhxODdRNGsySTR6WDVENnlrTEl0dGdpb2pTTHFvaVFHWXBGVXVuNTNKVWNXQkJwM3IKc3RkMGFYeW9DTTRtUTBGS2QxTnRxUWNPZTR4RUZvUHdnSFVmeXdPRUlSS0lYS3ZuelBaemFzZmU2cTk3c25Gago3aGVGZU1IMmpwc1ZsU2NGSDlUNmZIOVVmVlV1ZlFwUjMyeFd2RzRsaFlGVENhOEd4Mm1PQUMyOGcvejlQUC9yClRybTQya2hEQm5YSks1dUFTYitGeHlQbjM4MkgvSzgwZkV5bnFJenZYbHMvWS82Nis5d0lmaWM1YXVLRmpuZUkKdDRGY3V1a0NnWUVBOG5KQnpIcHVFNmIrZURteEhXU1kzd2lCdU5PSmlOd0VGWDJZZldIUUlPaFJxbktrL2RNNgpDTXY3cmIwdnp1dHdqQXNhRzd3bnhnZjFDOGNKUm9nKzh3SWZCSEVrOFBTVmVRTU9GbDZZcUJac0I5VlUzMTQ1CmdZVHR3cW5xd1JPUFJpWHR4NmFNcEdTVlVTdlNoZE11dzBEMHdNNkcrT2ZPbHpLWUhyaGplMThDZ1lFQTQxcGcKSDVYZEQ2UG1GS0pmb3RRSEx5eG8vdVJCSGhxN0JxRHFQcGVaSjgxYzBMbnE2ZlJkVEs1Uk1ndmxZaUhVWFpiVgoybG5yQjNPckxPeVpDNHBaamdEWURmbzQvc1U2SDZDcDU0RUR4UzNiTFFsVlExTWZzbkM4UFkwTGgrOWhLK3Z0CjdxOFAxR0IwL09NNXZQUXZlazBRRTkzZDFuREg5WFVmNldYUkdsY0NnWUFYbEhFOTEvSjR5dGNaRGxOaGpuVW4KekFZQjJlRVloSDJKTVl2eE5lQXVNeW91TDdSSVU1RGpaaU4yUkY0dis4b1lkTVAzU3BkN3RTNXFGTk9jSG9ndwp6bFlCOHBjck1ENlJaSENzVUVyOG5pR25xV0gxejQ0OFFKZDNSVnRscCtkWlpUcjVIZ096d1d5Y1ZtekZRMExiCkRxZy9VRmJrUW5kZlVUWm1WbnltZFFLQmdHQVNtcmYrTGpJandtQkoxVHdMZVJXNElJNUZpamJjZU5mdU84NUQKWlpicU15U0l5L29kSnlmMktaMktaVjQ0aVhNYkFEZUs4OFJzWHBOWFQ3ME9zNVZNU2dCdUVwT21hRTloSnlzSwoyN3NCQzdOV1ZFOWsydW9ldFkwVkF5Qm9TWm16MHhHZnJJTEVWK3RkWWRLMUpUTDdTYVg3aFhqT285RFhzNnAvCk9nTjFBb0dBRDVuRGlHc1hXUEZickUyOXpLVEMyUUlzWVczbm50VjZqcDg4UXlJMkVwRHY1SVFoQVZ2RDNQSmwKTzNWdE9WY2RaSUhqV2hJM1ZpWGhxVnh6V1lpU3puZWZVMSt4Tk50SEVIQnNxNG5XWXFPVGFpVXNRc0p1Y1BEUApZWWRqOXNaUGh1bXlYZm1uRXJkc2lDRUs1OWduSWZHZGNubkhKL3BYbjI5VVV6MXJJSVE9Ci0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
+kind: Secret
+metadata:
+  name: crane-scheduler-webhook-server-tls
+  namespace: kube-system
+type: kubernetes.io/tls

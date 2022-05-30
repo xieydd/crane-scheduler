@@ -10,18 +10,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	policy "github.com/gocrane/crane-scheduler/pkg/plugins/apis/policy"
+	schedulingapi "git.woa.com/crane/api/scheduling/v1alpha1"
 
-	prom "github.com/gocrane/crane-scheduler/pkg/controller/prometheus"
-	utils "github.com/gocrane/crane-scheduler/pkg/utils"
+	"github.com/gocrane/crane-scheduler/pkg/controller/metrics"
+	"github.com/gocrane/crane-scheduler/pkg/known"
+	"github.com/gocrane/crane-scheduler/pkg/plugins/apis/policy"
+	"github.com/gocrane/crane-scheduler/pkg/utils"
 )
 
 const (
-	HotValueKey    = "node_hot_value"
 	DefaultBackOff = 10 * time.Second
 	MaxBackOff     = 360 * time.Second
 )
@@ -43,6 +46,7 @@ func newNodeController(c *Controller) *nodeController {
 
 func (n *nodeController) Run() {
 	defer n.queue.ShutDown()
+	defer runtime.HandleCrash()
 	klog.Infof("Start to reconcile node events")
 
 	for n.processNextWorkItem() {
@@ -72,7 +76,7 @@ func (n *nodeController) processNextWorkItem() bool {
 func (n *nodeController) syncNode(key string) (bool, error) {
 	startTime := time.Now()
 	defer func() {
-		klog.Infof("Finished syncing node event %q (%v)", key, time.Since(startTime))
+		klog.Infof("Finished syncing node metric %q (%v)", key, time.Since(startTime))
 	}()
 
 	nodeName, metricName, err := splitMetaKeyWithMetricName(key)
@@ -85,7 +89,7 @@ func (n *nodeController) syncNode(key string) (bool, error) {
 		return true, fmt.Errorf("can not find node[%s]: %v", node, err)
 	}
 
-	err = annotateNodeLoad(n.promClient, n.kubeClient, node, metricName)
+	err = annotateNodeLoad(n.metricClient, n.kubeClient, node, metricName)
 	if err != nil {
 		return false, fmt.Errorf("can not annotate node[%s]: %v", node.Name, err)
 	}
@@ -98,8 +102,8 @@ func (n *nodeController) syncNode(key string) (bool, error) {
 	return true, nil
 }
 
-func annotateNodeLoad(promClient prom.PromClient, kubeClient clientset.Interface, node *v1.Node, key string) error {
-	value, err := promClient.QueryByNodeName(key, node.Name)
+func annotateNodeLoad(metricClient metrics.MetricClient, kubeClient clientset.Interface, node *v1.Node, key string) error {
+	value, _, err := metricClient.QueryNodeMetricLatest(key, node)
 	if err != nil || len(value) == 0 {
 		return fmt.Errorf("failed to get data %s{%s=%s}: %v", key, node.Name, value, err)
 	}
@@ -114,7 +118,7 @@ func annotateNodeHotValue(kubeClient clientset.Interface, br *BindingRecords, no
 		value += br.GetLastNodeBindingCount(node.Name, p.TimeRange.Duration) / p.Count
 	}
 
-	return patchNodeAnnotation(kubeClient, node, HotValueKey, strconv.Itoa(value))
+	return patchNodeAnnotation(kubeClient, node, known.NodeHotValueKey, strconv.Itoa(value))
 }
 
 func patchNodeAnnotation(kubeClient clientset.Interface, node *v1.Node, key, value string) error {
@@ -129,6 +133,7 @@ func patchNodeAnnotation(kubeClient clientset.Interface, node *v1.Node, key, val
 		operator = "replace"
 	}
 
+	patchPathKey := utils.BuildCranePatchAnnotationKey(schedulingapi.AnnotationPrefixSchedulingBalanceLoad, key)
 	patchAnnotationTemplate :=
 		`[{
 		"op": "%s",
@@ -136,7 +141,7 @@ func patchNodeAnnotation(kubeClient clientset.Interface, node *v1.Node, key, val
 		"value": "%s"
 	}]`
 
-	patchData := fmt.Sprintf(patchAnnotationTemplate, operator, key, value+","+utils.GetLocalTime())
+	patchData := fmt.Sprintf(patchAnnotationTemplate, operator, patchPathKey, value+","+utils.GetLocalTime())
 
 	_, err := kubeClient.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.JSONPatchType, []byte(patchData), metav1.PatchOptions{})
 	return err
@@ -146,13 +151,30 @@ func (n *nodeController) CreateMetricSyncTicker(stopCh <-chan struct{}) {
 
 	for _, p := range n.policy.Spec.SyncPeriod {
 		enqueueFunc := func(policy policy.SyncPolicy) {
-			nodes, err := n.nodeLister.List(labels.Everything())
+			cnrps, err := n.cnrpLister.List(labels.Everything())
 			if err != nil {
-				panic(fmt.Errorf("failed to list nodes: %v", err))
+				panic(fmt.Errorf("failed to list cnrps: %v", err))
+			}
+			selectedNodes := sets.NewString()
+			// todo: also consider the nrp crd when it uses nrp crd mode to each node
+			for _, cnrp := range cnrps {
+				cnrpSelector, err := metav1.LabelSelectorAsSelector(&cnrp.Spec.NodeSelector)
+				if err != nil {
+					klog.Errorf("Failed to convert label selector for cnrp %v: %v", klog.KObj(cnrp), err)
+					continue
+				}
+				nodes, err := n.nodeLister.List(cnrpSelector)
+				if err != nil {
+					klog.Errorf("Failed to list nodes for cnrp %v: %v", klog.KObj(cnrp), err)
+					continue
+				}
+				for _, node := range nodes {
+					selectedNodes.Insert(node.Name)
+				}
 			}
 
-			for _, node := range nodes {
-				n.queue.Add(handlingMetaKeyWithMetricName(node.Name, policy.Name))
+			for _, node := range selectedNodes.List() {
+				n.queue.Add(handlingMetaKeyWithMetricName(node, policy.Name))
 			}
 		}
 

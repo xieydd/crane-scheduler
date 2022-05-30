@@ -1,0 +1,27 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: crane-scheduler-controller-mutating-webhook
+webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUNuRENDQVlRQ0NRREMydFVlbWZkMlJEQU5CZ2txaGtpRzl3MEJBUXNGQURBUU1RNHdEQVlEVlFRRERBVmoKY21GdVpUQWVGdzB5TWpBMk1UUXdOelV5TURsYUZ3MHpNakEyTVRFd056VXlNRGxhTUJBeERqQU1CZ05WQkFNTQpCV055WVc1bE1JSUJJakFOQmdrcWhraUc5dzBCQVFFRkFBT0NBUThBTUlJQkNnS0NBUUVBMHVaUFJRRW93Y1oxCjNldHhLUXRsSXIxekZTTXFENnYxYTNqRERnM1NZZXVZWUFOYUt6bmVEbnIxZkZmMWFac3lMVjBhdlY4d21KLzUKSlBUV0Y3WWJ1ZjMwRGJkWnlNU1FDRDBldmFsQm52eXRJbkl1WHA5bnJqQlhEQW5Mb3AzdE9ZbFIwaVBJMG52bApueUxHYkFiZ052aklhTHVvVk1Wdmc5ZFI0SE1aT2ZJL2F4Z1FkSldzMTE4aVkrQnFQSVZaYXRKTC9qUS84K0JlCkhBZkhHN2NPdDdydTF6V0E1NDUyMnNiMTBHZHdkU0UvYytucTZJMCsvOGNPSHFJUmIvRnV4d0VtbmlmcDFmMXMKbDJTTUxqTEFHZ3BRWkhRVzJTaElSL1ErTkMwNDhrS0lXRGhKR0JGMHowbVk1M2RnQUdlaGo4TVdXRDJYMmNhWApDZWZnZi9zVW1RSURBUUFCTUEwR0NTcUdTSWIzRFFFQkN3VUFBNElCQVFBZ1Q4amYxUVVPNGkxWHdIZFZORWp1Cko3RXZZTDRsRE9OZ1RsWFNPZ2szNlZ4ZEhodzFxalo5SEpOWExNbW1XZXMzc3RoeTBkU2ZpTGNZS0ZXb2xJUzAKUnJ3K1FrTTdtcHNBTWQ1a2tkSXo2V1k1ZDlVYXpGbko1cUZWSDQyendvK3RtZzI2SE1LMXZrOGozQ04vTU84SAovRkNvNGZoTmpDc1ZCcmpOaC9KZFNJUGh6eXREZVhkcmtsbVdZU2x3NUtwUnVva3FzYVBpWFNLaWFzaWZOZVB3CmRRc3RUeXBBMjNLUVRtNy84UGxPYmxQYndxcVN3MUc2QmJOUURDbjJFQm0ycVUyNStvWGdRWk8ra3hwK20rdWgKT29GUVl5c1pTT0lPb1ZVR0p5YjFKdmpmMWpzS1VhOFY3K252R0JsMmxIcXdBbGNQbndVdytwM0NHamxZMVE0YwotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+      service:
+        name: crane-scheduler-controller
+        namespace: kube-system
+        path: /mutate-pod
+    failurePolicy: Fail
+    name: crane-scheduler-controller.kube-system.svc
+    rules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - "v1"
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - pods
+    sideEffects: None

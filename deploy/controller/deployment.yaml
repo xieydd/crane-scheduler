@@ -25,12 +25,16 @@ spec:
           command:
             - /controller
             - --policy-config-path=/data/policy.yaml
-            - --prometheus-address=PROMETHEUS_ADDRESS
-          image: docker.io/gocrane/crane-scheduler-controller:0.0.23 
+            - --provider=qcloud
+            - --cloudConfigFile=/etc/cloud/config
+          image: docker.io/gocrane/crane-scheduler-controller:v0.4.1
           imagePullPolicy: IfNotPresent
           volumeMounts:
             - mountPath: /data
               name: dynamic-scheduler-policy
+            - mountPath: /etc/cloud
+              name: cloud-config
+              readOnly: true
           resources:
             requests:
               cpu: 200m
@@ -42,6 +46,10 @@ spec:
             defaultMode: 420
             name: dynamic-scheduler-policy
           name: dynamic-scheduler-policy
+        - name: cloud-config
+          secret:
+            defaultMode: 420
+            secretName: crane-scheduler-controller
 
 ---
 apiVersion: v1
