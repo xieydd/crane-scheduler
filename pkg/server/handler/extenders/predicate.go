@@ -2,10 +2,12 @@ package extenders
 
 import (
 	"fmt"
+	"k8s.io/klog/v2"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	schedulerextapi "k8s.io/kube-scheduler/extender/v1"
@@ -26,16 +28,19 @@ type Predicate struct {
 func (p Predicate) Handler(c *gin.Context) {
 	defer utilruntime.HandleCrash()
 	start := time.Now()
-	defer func() {
-		labels := map[string]string{
-			"predicate_name": known.PredicateSafeOverloadName,
-		}
-		metrics.ExtenderPredicateHandlerLatency.With(labels).Observe(time.Since(start).Seconds())
-	}()
+	var err error
 	var args schedulerextapi.ExtenderArgs
-	err := c.BindJSON(args)
+	defer func() {
 
+		metrics.ExtenderPredicateHandlerLatency.With(
+			prometheus.Labels{"predicate_name": known.PredicateSafeOverloadName},
+		).Observe(time.Since(start).Seconds())
+
+		metrics.RecordExtenderHandlerError(known.PredicateSafeOverloadName, args.Pod, err)
+	}()
+	err = c.BindJSON(&args)
 	if err != nil {
+		klog.Error(err, args)
 		extenderFilterResult := &schedulerextapi.ExtenderFilterResult{
 			Nodes:       nil,
 			FailedNodes: nil,
@@ -45,20 +50,24 @@ func (p Predicate) Handler(c *gin.Context) {
 		return
 	}
 	if args.Pod == nil {
+		err = fmt.Errorf("no pod specified")
 		extenderFilterResult := &schedulerextapi.ExtenderFilterResult{
 			Nodes:       nil,
 			FailedNodes: nil,
-			Error:       fmt.Errorf("no pod specified").Error(),
+			Error:       err.Error(),
 		}
+		klog.Error(err, args)
 		c.JSON(http.StatusOK, extenderFilterResult)
 		return
 	}
 	if args.Nodes == nil {
+		err = fmt.Errorf("do not support node cache")
 		extenderFilterResult := &schedulerextapi.ExtenderFilterResult{
 			Nodes:       nil,
 			FailedNodes: nil,
-			Error:       fmt.Errorf("do not support node cache").Error(),
+			Error:       err.Error(),
 		}
+		klog.Error(err, args)
 		c.JSON(http.StatusOK, extenderFilterResult)
 		return
 	}
@@ -69,6 +78,7 @@ func (p Predicate) Handler(c *gin.Context) {
 			FailedNodes: nil,
 			Error:       err.Error(),
 		}
+		klog.Error(err, args)
 		c.JSON(http.StatusOK, extenderFilterResult)
 		return
 	}

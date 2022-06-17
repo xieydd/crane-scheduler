@@ -85,16 +85,6 @@ func (es *ExtenderScheduler) GetPredicatesFunc(name string) PredicateFunc {
 		es.lock.Lock()
 		defer es.lock.Unlock()
 
-		all, _ := es.namespacesApplyScope["*"]
-		podApply, _ := es.namespacesApplyScope[pod.Namespace]
-		if !all && !podApply {
-			// keep original and no housekeeper nodes can be selected
-			return &schedulerextapi.ExtenderFilterResult{
-				Nodes: &corev1.NodeList{
-					Items: nodes,
-				},
-			}, nil
-		}
 		f, ok := es.Predicates[name]
 		if ok {
 			return f(pod, nodes, es.PolicySpec)
@@ -107,21 +97,6 @@ func (es *ExtenderScheduler) GetPrioritiesFunc(name string) PriorityFunc {
 	return func(pod corev1.Pod, nodes []corev1.Node) (*schedulerextapi.HostPriorityList, error) {
 		es.lock.Lock()
 		defer es.lock.Unlock()
-
-		all, _ := es.namespacesApplyScope["*"]
-		podApply, _ := es.namespacesApplyScope[pod.Namespace]
-
-		if !all && !podApply {
-			// keep original, means this is not valid, all is zero score
-			scores := schedulerextapi.HostPriorityList{}
-			for _, node := range nodes {
-				scores = append(scores, schedulerextapi.HostPriority{
-					Host:  node.Name,
-					Score: 0,
-				})
-			}
-			return &scores, nil
-		}
 
 		f, ok := es.Priorities[name]
 		if ok {

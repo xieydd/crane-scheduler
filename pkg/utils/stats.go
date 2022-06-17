@@ -42,18 +42,20 @@ func GetResourceUsage(anno map[string]string, key string, activeDuration time.Du
 	if anno == nil {
 		return 0, fmt.Errorf("annotation is null")
 	}
-	usedstr, ok := anno[key]
+	annkey := BuildCraneAnnotation(schedulingapi.AnnotationPrefixSchedulingBalanceLoad, key)
+
+	loadStr, ok := anno[annkey]
 	if !ok {
-		return 0, fmt.Errorf("key[%s] not found", usedstr)
+		return 0, fmt.Errorf("annotation key %v not found", annkey)
 	}
 
-	usedSlice := strings.Split(usedstr, ",")
+	usedSlice := strings.Split(loadStr, ",")
 	if len(usedSlice) != 2 {
-		return 0, fmt.Errorf("illegel value: %s", usedstr)
+		return 0, fmt.Errorf("illegel value: %s", loadStr)
 	}
 
 	if !InActivePeriod(usedSlice[1], activeDuration) {
-		return 0, fmt.Errorf("timestamp[%s] is expired", usedstr)
+		return 0, fmt.Errorf("timestamp[%s] is expired", loadStr)
 	}
 
 	UsedValue, err := strconv.ParseFloat(usedSlice[0], 64)
@@ -62,7 +64,40 @@ func GetResourceUsage(anno map[string]string, key string, activeDuration time.Du
 	}
 
 	if UsedValue < 0 {
-		return 0, fmt.Errorf("illegel value: %s", usedstr)
+		return 0, fmt.Errorf("illegel value: %s", loadStr)
+	}
+
+	return UsedValue / 100., nil
+}
+
+func GetNodeHotValue(anno map[string]string, activeDuration time.Duration) (float64, error) {
+
+	if anno == nil {
+		return 0, fmt.Errorf("annotation is null")
+	}
+	annkey := BuildCraneAnnotation(schedulingapi.AnnotationPrefixSchedulingBalanceLoad, known.NodeHotValueKey)
+
+	loadStr, ok := anno[annkey]
+	if !ok {
+		return 0, fmt.Errorf("annotation key %v not found", annkey)
+	}
+
+	usedSlice := strings.Split(loadStr, ",")
+	if len(usedSlice) != 2 {
+		return 0, fmt.Errorf("illegel value: %s", loadStr)
+	}
+
+	if !InActivePeriod(usedSlice[1], activeDuration) {
+		return 0, fmt.Errorf("timestamp[%s] is expired", loadStr)
+	}
+
+	UsedValue, err := strconv.ParseFloat(usedSlice[0], 64)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse float[%s]", usedSlice[0])
+	}
+
+	if UsedValue < 0 {
+		return 0, fmt.Errorf("illegel value: %s", loadStr)
 	}
 
 	return UsedValue, nil
@@ -79,7 +114,9 @@ func GetResourceTargetThreshold(anno map[string]string, key string) (float64, er
 		memKey := v1.ResourceMemory.String()
 		if strings.Contains(key, cpuKey) {
 			key = cpuKey
-		} else if strings.Contains(key, memKey) {
+		} else if strings.Contains(key, "mem") {
+			// load mem_usage_avg_xxx
+			// but target is memory
 			key = memKey
 		}
 		annkey := BuildCraneAnnotation(schedulingapi.AnnotationPrefixSchedulingBalanceTarget, key)
@@ -93,7 +130,7 @@ func GetResourceTargetThreshold(anno map[string]string, key string) (float64, er
 		return 0, fmt.Errorf("failed to parse int[%v]", target)
 	}
 
-	return float64(targetPercent / 100), nil
+	return float64(targetPercent) / 100, nil
 }
 
 func GetActiveDuration(syncPeriodList []policy.SyncPolicy, name string) (time.Duration, error) {

@@ -1,9 +1,7 @@
 package extenders
 
 import (
-	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -14,6 +12,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/gocrane/crane-scheduler/pkg/known"
+	"github.com/gocrane/crane-scheduler/pkg/utils"
 )
 
 type cmController struct {
@@ -82,47 +81,7 @@ func (n *cmController) syncConfigMap(key string) (bool, error) {
 		}
 	}
 
-	namespaces := make(map[string]bool)
-	namespaceScope := make(map[string]interface{})
-	clusterScope := false
-	for k, v := range config.Data {
-		switch k {
-		case known.ConfigMapSchedulerApplyScopeKeyClusterScope:
-			Bv, err := strconv.ParseBool(v)
-			if err != nil {
-				clusterScope = false
-				klog.Errorf("Failed to parse configmap[%s] kv[%s: %s], use default false: %v", key, k, v, err)
-			} else {
-				clusterScope = Bv
-			}
-		case known.ConfigMapSchedulerApplyScopeKeyNamespaceScope:
-			err = json.Unmarshal([]byte(v), &namespaceScope)
-			if err != nil {
-				return false, fmt.Errorf("failed to parse configmap[%s] kv[%s: %s]: %v", key, k, v, err)
-			}
-		}
-	}
-
-	if clusterScope {
-		namespaces["*"] = true
-	}
-	for k, v := range namespaceScope {
-		val := false
-		if bv, ok := v.(bool); ok {
-			val = bv
-		} else if strV, ok := v.(string); ok {
-			parsedVal, err := strconv.ParseBool(strV)
-			if err != nil {
-				klog.Errorf("Failed to parse value bool for kv[%v:%v] in configmap[%s]:", k, v, key, val)
-				continue
-			}
-			val = parsedVal
-		} else {
-			klog.Errorf("Failed to parse value bool for kv[%v:%v] in configmap[%s]:", k, v, key, val)
-			continue
-		}
-		namespaces[k] = val
-	}
+	namespaces := utils.GetSchedulerNamespaceApplyScope(config)
 
 	klog.Infof("Sync configmap[%s], got namespaceScope: %+v", key, namespaces)
 

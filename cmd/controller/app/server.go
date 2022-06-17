@@ -112,7 +112,13 @@ func Run(cc *config.CompletedConfig, ctx context.Context) error {
 			hookServer.CertDir = certDir
 		}
 
-		hookServer.Register("/mutate-pod", &webhook.Admission{Handler: &webhooks.PodMutate{Client: mgr.GetClient()}})
+		admssionWebHook := &webhook.Admission{Handler: &webhooks.PodMutate{Client: mgr.GetClient()}}
+		err = admssionWebHook.InjectLogger(klog.NewKlogr().WithName("webhook"))
+		if err != nil {
+			klog.Fatal(err)
+		}
+
+		hookServer.Register("/mutate-pod", admssionWebHook)
 		klog.Infof("webhook server started at %v:%v", hookServer.Host, hookServer.Port)
 		go func() {
 			if err := mgr.Start(ctx); err != nil {

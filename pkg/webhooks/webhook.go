@@ -16,13 +16,6 @@ import (
 	"github.com/gocrane/crane-scheduler/pkg/utils"
 )
 
-const (
-	// nodes with following label key/value is housekeeper managed node pool nodes.
-	// checked with @jerryachen
-	LabelHousekeeperNodeKey = "cloud.tencent.com/provider"
-	LabelHousekeeperNodeVal = "tencentcloud"
-)
-
 type Config struct {
 	Enabled     bool
 	HookPort    int
@@ -43,25 +36,29 @@ func (p *PodMutate) Handle(ctx context.Context, req admission.Request) admission
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
+	klog.V(6).Infof("webhook mutating pod: %v", klog.KObj(pod))
+
 	cm := corev1.ConfigMap{}
 	err = p.Client.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: known.ConfigMapSchedulerApplyScope}, &cm)
 	if err == nil || errors.IsNotFound(err) {
-		namespacesScope := utils.GetSchedulerNamespaceApplyScope(cm)
+		namespacesScope := utils.GetSchedulerNamespaceApplyScope(&cm)
 		clusterScope := namespacesScope[known.WildCard]
-		podApply := namespacesScope[pod.Namespace]
+		// use AdmissionRequest namespace instead object namespace because of object maybe has no namespace and name.
+		// this is because for some no namespace object in yaml, apiserver registry fill the namespace after the mutating webhook
+		podApply := namespacesScope[req.Namespace]
 		if clusterScope || podApply {
 			ann := pod.GetAnnotations()
 			if ann == nil {
 				ann = make(map[string]string)
 			}
-			// this is used for scheduler to decide to schedule on housekeeper
-			ann[known.AnnotationPodSchedulingScope] = "housekeeper"
+			// this is used for scheduler to decide to schedule on housekeeper, for crane housekeeper extender scheduler to do some differentiation capability with normal nodes
+			ann[known.AnnotationPodSchedulingScope] = known.AnnotationPodSchedulingScopeHousekeeperVal
 			pod.Annotations = ann
 			nodeSelector := pod.Spec.NodeSelector
 			if nodeSelector == nil {
 				nodeSelector = make(map[string]string)
 			}
-			nodeSelector[LabelHousekeeperNodeKey] = LabelHousekeeperNodeVal
+			nodeSelector[known.LabelHousekeeperNodeKey] = known.LabelHousekeeperNodeVal
 			pod.Spec.NodeSelector = nodeSelector
 		}
 	} else {
@@ -74,6 +71,8 @@ func (p *PodMutate) Handle(ctx context.Context, req admission.Request) admission
 		klog.Error(err, "failed marshal pod")
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
+
+	klog.V(6).Infof("webhook mutated pod: %s", marshaledPod)
 
 	return admission.PatchResponseFromRaw(req.Object.Raw, marshaledPod)
 }

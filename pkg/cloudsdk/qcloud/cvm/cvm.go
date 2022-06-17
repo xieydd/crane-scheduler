@@ -166,6 +166,7 @@ func (qcc *CVMClient) getClient() (*cvm.Client, error) {
 			return qcc.client, err
 		}
 	}
+	qcc.client.WithCredential(cred)
 	if qcc.config.Debug {
 		SecretId := cred.GetSecretId()
 		SecretKey := cred.GetSecretKey()

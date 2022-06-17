@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"k8s.io/kubernetes/pkg/util/maps"
 	"sync"
 	"time"
 
@@ -66,17 +67,21 @@ func RecordDataSourceMetricQueryLatency(metric *metricquery.Metric, start time.T
 }
 
 func RecordDataSourceMetricQueryError(metric *metricquery.Metric, err error, datasource, query_type string) {
-	labels, buildErr := metric.BuildPromLabels()
+	counterLabels, buildErr := metric.BuildPromLabels()
 	if buildErr != nil {
 		return
 	}
-	labels["datasource"] = datasource
-	labels["query_type"] = query_type
-	if err == nil {
-		DataSourceMetricQueryErrorDetailGuage.With(labels).Set(0)
+	counterLabels["datasource"] = datasource
+	counterLabels["query_type"] = query_type
+
+	guageLabels := maps.CopySS(counterLabels)
+
+	if err != nil {
+		DataSourceMetricQueryErrorCounter.With(counterLabels).Inc()
+		guageLabels["error"] = err.Error()
+		DataSourceMetricQueryErrorDetailGuage.With(guageLabels).Set(1)
 	} else {
-		labels["error"] = err.Error()
-		DataSourceMetricQueryErrorCounter.With(labels).Inc()
-		DataSourceMetricQueryErrorDetailGuage.With(labels).Set(1)
+		guageLabels["error"] = ""
+		DataSourceMetricQueryErrorDetailGuage.With(guageLabels).Set(0)
 	}
 }

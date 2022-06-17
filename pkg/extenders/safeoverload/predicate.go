@@ -34,7 +34,7 @@ func PredictateFunc(pod corev1.Pod, nodes []corev1.Node, policySpec policy.Polic
 	// todo: parallel
 	for _, node := range nodes {
 		result, status := predicate(pod, node, policySpec)
-		if status.IsSuccess() {
+		if !status.IsSuccess() {
 			canNotSchedule[node.Name] = status.AsError().Error()
 		} else {
 			if result {
@@ -53,7 +53,7 @@ func PredictateFunc(pod corev1.Pod, nodes []corev1.Node, policySpec policy.Polic
 
 	if klog.V(6).Enabled() {
 		verbose, err := json.Marshal(result)
-		klog.V(6).Infof("==> PriorityFunc: applying safe-overload, calculating priority for pod %s, filterResult: %s, err: %v",
+		klog.V(6).Infof("==> PredicateFunc: applying safe-overload, calculating priority for pod %s, filterResult: %s, err: %v",
 			klog.KObj(&pod), string(verbose), err)
 	}
 
@@ -74,6 +74,12 @@ func predicate(pod corev1.Pod, node corev1.Node, policySpec policy.PolicySpec) (
 		metrics.ExtenderPredicateNodeLatency.With(labels).Observe(time.Since(start).Seconds())
 	}()
 
+	// for non-housekeeper-scoped pods, normal nodes pass directly but for housekeeper node we do load balance so housekeeper has some more capability
+	// this is an product policy for housekeeper migration and sell
+	if !utils.IsHouseKeeperScopePod(&pod) && !utils.IsHouseKeeperNode(&node) {
+		return true, framework.NewStatus(framework.Success)
+	}
+
 	if utils.IsDaemonsetPod(&pod) {
 		return true, framework.NewStatus(framework.Success)
 	}
@@ -82,9 +88,6 @@ func predicate(pod corev1.Pod, node corev1.Node, policySpec policy.PolicySpec) (
 	if anno == nil {
 		anno = map[string]string{}
 	}
-
-	klog.V(6).Infof("==>PredicateFunc: applying SafePredicate for pod %v on node %s, annotation: %v, policySpec: %v\n",
-		klog.KObj(&pod), node.Name, anno, policySpec)
 
 	if algorithms.IsOverLoad(&pod, &node, anno, policySpec) {
 		return false, framework.NewStatus(framework.Unschedulable, frameworkerrors.ErrReasonOverloadThresholdExceeded)

@@ -33,29 +33,30 @@ func GetMetricScore(node *corev1.Node, anno map[string]string, priorityPolicy po
 func IsOverLoad(pod *corev1.Pod, node *corev1.Node, anno map[string]string, policySpec policy.PolicySpec) bool {
 	// all usage must less than overload threshold.
 	// if can not get the usage load or not exists in node annotation or there are no thresholds, we think it is not overload for safety
+	thresholdExceedCounts := 0
 	for _, predicatePolicy := range policySpec.Predicate {
 		activeDuration, err := utils.GetActiveDuration(policySpec.SyncPeriod, predicatePolicy.Name)
 		if err != nil || activeDuration == 0 {
-			klog.Warningf("Predicate pod: %s/%s, node: %s, getactiveDuration error %s", pod.Name, pod.Namespace, node.Name,
+			klog.Warningf("Predicate pod: %s, node: %s, getactiveDuration error %s", klog.KObj(pod), node.Name,
 				predicatePolicy.Name)
 			continue
 		}
 
 		usage, err := utils.GetResourceUsage(anno, predicatePolicy.Name, activeDuration)
 		if err != nil {
-			klog.Errorf("Failed to get the usage of metric[%s] from node[%s]'s annotation: %v", predicatePolicy.Name, node.Name, err)
+			klog.Errorf("Failed to get the usage of pod[%s] metric[%s] from node[%s]'s annotation: %v", klog.KObj(pod), predicatePolicy.Name, node.Name, err)
 			continue
 		}
 
 		targetThreshold, err := utils.GetResourceTargetThreshold(anno, predicatePolicy.Name)
 		if err != nil {
-			klog.Errorf("Failed to get the target threshold of metric[%s] from node[%s]'s annotation: %v", predicatePolicy.Name, node.Name, err)
+			klog.Errorf("Failed to get the target threshold of pod[%s] metric[%s] from node[%s]'s annotation: %v", klog.KObj(pod), predicatePolicy.Name, node.Name, err)
 			continue
 		}
 
 		// threshold was set as 0 means that the filter according to this metric is useless.
 		if targetThreshold <= 0 {
-			klog.V(6).Info("Ignore the filter of metric[%s] for targetThreshold was set as 0", predicatePolicy.Name)
+			klog.V(6).Infof("Ignore the filter of pod[%s] metric[%s] from node[%s] for targetThreshold was set as 0", klog.KObj(pod), predicatePolicy.Name, node.Name)
 			continue
 		}
 
@@ -63,8 +64,14 @@ func IsOverLoad(pod *corev1.Pod, node *corev1.Node, anno map[string]string, poli
 		if usage > targetThreshold {
 			klog.V(6).Infof("Predicate pod: %s, node: %s, out of %s, usage=%v,targetThreshold=%v", klog.KObj(pod), node.Name,
 				predicatePolicy.Name, usage, targetThreshold)
-			return true
+			thresholdExceedCounts ++
 		}
+	}
+
+	n := len(policySpec.Predicate)
+	if n > 0 && thresholdExceedCounts >= n {
+		klog.V(6).Infof("Predicate pod: %s, node: %s is overload, thresholdExceedCounts: %v, len(policySpec.Predicate): %v", klog.KObj(pod), node.Name, thresholdExceedCounts, n)
+		return true
 	}
 
 	return false
@@ -108,13 +115,13 @@ func GetNodeScoreWithHotSpotPenalty(pod *corev1.Pod, node *corev1.Node, anno map
 
 	var score, weight float64
 
+	// if the usage metric is expired or has error, the node do not compute score
 	for _, priorityPolicy := range policySpec.Priority {
-
 		priorityScore, err := GetMetricScore(node, anno, priorityPolicy, policySpec.SyncPeriod)
 		if err != nil {
-			klog.Errorf("Failed to get metric score, pod: %v, node: %v, metric: %v, score: %v", klog.KObj(pod), node.Name, priorityPolicy.Name, score)
+			klog.Errorf("Failed to get metric score, pod: %v, node: %v, metric: %v, score: %v, err: %v", klog.KObj(pod), node.Name, priorityPolicy.Name, score, err)
+			return 0
 		}
-
 		weight += priorityPolicy.Weight
 		score += priorityScore
 	}
@@ -122,6 +129,9 @@ func GetNodeScoreWithHotSpotPenalty(pod *corev1.Pod, node *corev1.Node, anno map
 	weightedScore := int64(score / weight)
 	hotValuePenalty := GetNodeHotValue(node)
 	finalScore := weightedScore - int64(hotValuePenalty)
+	if finalScore < 0 {
+		finalScore = 0
+	}
 	klog.V(6).Infof("GetNodeScoreWithHotSpotPenalty, pod: %v, node: %v, metric weighted score: %v, hotValuePenalty: %v, finalScore: %v", klog.KObj(pod), node.Name, weightedScore, hotValuePenalty, finalScore)
 	return finalScore
 }
@@ -132,7 +142,7 @@ func GetNodeHotValue(node *corev1.Node) float64 {
 		return 0
 	}
 
-	hotvalue, err := utils.GetResourceUsage(anno, known.NodeHotValueKey, known.DefautlHotVauleActivePeriod)
+	hotvalue, err := utils.GetNodeHotValue(anno, known.DefautlHotVauleActivePeriod)
 	if err != nil {
 		return 0
 	}

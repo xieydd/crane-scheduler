@@ -149,7 +149,7 @@ func BuildPatchBytes(aswAnns, dswAnns map[string]string) ([]byte, error) {
 	return json.Marshal(patchItems)
 }
 
-func GetSchedulerNamespaceApplyScope(config v1.ConfigMap) map[string]bool {
+func GetSchedulerNamespaceApplyScope(config *v1.ConfigMap) map[string]bool {
 	namespaces := make(map[string]bool)
 	namespaceScope := make(map[string]interface{})
 	clusterScope := false

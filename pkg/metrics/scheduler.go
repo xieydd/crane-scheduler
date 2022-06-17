@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/component-base/metrics"
 )
 
@@ -62,6 +63,26 @@ var (
 		},
 		[]string{"priority_name", "pod", "namespace"},
 	)
+
+	ExtenderHandlerErrorCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "crane",
+			Subsystem: "scheduling",
+			Name:      "extender_handler_error",
+			Help:      "count of errors for extender handler",
+		},
+		[]string{"handler_name", "pod", "namespace"},
+	)
+
+	ExtenderHandlerErrorDetailGuage = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "crane",
+			Subsystem: "scheduling",
+			Name:      "extender_handler_error_detail",
+			Help:      "detail of errors for extender handler",
+		},
+		[]string{"handler_name", "pod", "namespace", "error"},
+	)
 )
 
 func init() {
@@ -72,4 +93,33 @@ func init() {
 
 func CustomCollectorRegister(collector ...prometheus.Collector) {
 	prometheus.MustRegister(collector...)
+}
+
+func RecordExtenderHandlerError(handler string, pod *corev1.Pod, err error) {
+	podname := ""
+	namespace := ""
+	if pod != nil {
+		podname = pod.Name
+		namespace = pod.Namespace
+	}
+	if err != nil {
+		ExtenderHandlerErrorCounter.With(prometheus.Labels{
+			"handler_name": handler,
+			"pod":          podname,
+			"namespace":    namespace,
+		}).Inc()
+		ExtenderHandlerErrorDetailGuage.With(prometheus.Labels{
+			"handler_name": handler,
+			"pod":          podname,
+			"namespace":    namespace,
+			"error":        err.Error(),
+		}).Set(1)
+	} else {
+		ExtenderHandlerErrorDetailGuage.With(prometheus.Labels{
+			"handler_name": handler,
+			"pod":          podname,
+			"namespace":    namespace,
+			"error":        "",
+		}).Set(0)
+	}
 }

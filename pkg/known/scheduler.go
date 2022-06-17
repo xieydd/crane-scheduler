@@ -28,7 +28,13 @@ const (
 	ConfigMapSchedulerApplyScopeKeyNamespaceScope = "namespaceScope"
 	WildCard                                      = "*"
 
-	AnnotationPodSchedulingScope = "scope.scheduling.crane.io"
+	AnnotationPodSchedulingScope               = "scope.scheduling.crane.io"
+	AnnotationPodSchedulingScopeHousekeeperVal = "housekeeper"
+
+	// nodes with following label key/value is housekeeper managed node pool nodes.
+	// checked with @jerryachen
+	LabelHousekeeperNodeKey = "cloud.tencent.com/provider"
+	LabelHousekeeperNodeVal = "tencentcloud"
 )
 
 const (

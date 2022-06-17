@@ -12,14 +12,15 @@ import (
 	"github.com/gocrane/crane-scheduler/pkg/known"
 	"github.com/gocrane/crane-scheduler/pkg/metrics"
 	"github.com/gocrane/crane-scheduler/pkg/plugins/apis/policy"
+	"github.com/gocrane/crane-scheduler/pkg/utils"
 )
 
 // PriorityFunc : compute safe priority function
 func PriorityFunc(pod corev1.Pod, nodes []corev1.Node, policySpec policy.PolicySpec) (*schedulerextapi.HostPriorityList, error) {
 	labels := map[string]string{
-		"predicate_name": known.PrioritySafeBalanceName,
-		"pod":            pod.Name,
-		"namespace":      pod.Namespace,
+		"priority_name": known.PrioritySafeBalanceName,
+		"pod":           pod.Name,
+		"namespace":     pod.Namespace,
 	}
 	start := time.Now()
 	defer func() {
@@ -41,6 +42,13 @@ func PriorityFunc(pod corev1.Pod, nodes []corev1.Node, policySpec policy.PolicyS
 			Host:  node.Name,
 			Score: score,
 		}
+
+		// for non-housekeeper-scoped pods, normal nodes score zero directly but for housekeeper node we do load balance score so housekeeper has some more capability
+		// this is an product policy for housekeeper migration and sell
+		if !utils.IsHouseKeeperScopePod(&pod) && !utils.IsHouseKeeperNode(&node) {
+			priorityList[i].Score = 0
+		}
+
 	}
 	if klog.V(6).Enabled() {
 		verbose, err := json.Marshal(priorityList)

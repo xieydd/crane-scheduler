@@ -121,7 +121,7 @@ func (s *apiServer) Run(ctx context.Context) {
 			Addr:         net.JoinHostPort(s.config.BindAddress, strconv.Itoa(s.config.BindPort)),
 			Handler:      s,
 			ReadTimeout:  120 * time.Second,
-			WriteTimeout: 10 * time.Second,
+			WriteTimeout: 30 * time.Second,
 		}
 
 		klog.Infof("Start to listening on http address: %s", s.insecureServer.Addr)
