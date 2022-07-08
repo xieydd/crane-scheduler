@@ -56,13 +56,12 @@ func (n *cnrpController) processNextWorkItem() bool {
 	}
 	if forget {
 		n.queue.Forget(key)
-		return true
 	}
 
 	if after > 0 {
 		// time tick driven to keep the cnrp consistent with the node selected by the cnrp
 		// reconcile to keep the node is final consistent with cnrp template
-		n.queue.AddAfter(key, 1*time.Minute)
+		n.queue.AddAfter(key, after)
 	} else {
 		n.queue.AddRateLimited(key)
 	}
@@ -101,7 +100,7 @@ func (n *cnrpController) syncCNRP(key string) (bool, time.Duration, error) {
 		}
 	}
 
-	return true, 1 * time.Minute, nil
+	return true, 30 * time.Second, nil
 }
 
 func (n *cnrpController) handleClusterNodeResourcePolicyByAnn(policy *schedulingapi.ClusterNodeResourcePolicy) error {
