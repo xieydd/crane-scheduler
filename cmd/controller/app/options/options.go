@@ -77,6 +77,7 @@ func (o *Options) Flags(flag *pflag.FlagSet) error {
 	}
 
 	flag.StringVar(&o.PolicyConfigPath, "policy-config-path", o.PolicyConfigPath, "Path to annotator policy config")
+	flag.BoolVar(&o.EnableDynamicAnnotatorController, "enable-dynamic-annotator-controller", o.EnableDynamicAnnotatorController, "enable the dynamic annotator controller to annotate node load periodically.")
 	flag.StringVar(&o.PrometheusAddr, "metrics-address", o.PrometheusAddr, "The address of metrics, from which we can pull metrics data.")
 	flag.Int32Var(&o.BindingHeapSize, "binding-heap-size", o.BindingHeapSize, "Max size of binding heap size, used to store hot value data.")
 	flag.Int32Var(&o.ConcurrentSyncs, "concurrent-syncs", o.ConcurrentSyncs, "The number of annotator controller workers that are allowed to sync concurrently.")

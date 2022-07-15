@@ -2,7 +2,6 @@ package extenders
 
 import (
 	"fmt"
-	"k8s.io/klog/v2"
 	"net/http"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/klog/v2"
 	schedulerextapi "k8s.io/kube-scheduler/extender/v1"
 
 	"github.com/gocrane/crane-scheduler/pkg/known"

@@ -136,7 +136,7 @@ func Run(cc *config.CompletedConfig, ctx context.Context) error {
 			cc.KubeClient,
 			cc.MetricsClient,
 			*cc.Policy,
-			cc.AnnotatorConfig.BindingHeapSize,
+			cc.AnnotatorConfig,
 		)
 
 		cc.KubeInformerFactory.Start(ctx.Done())

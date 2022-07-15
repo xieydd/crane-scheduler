@@ -64,7 +64,7 @@ func IsOverLoad(pod *corev1.Pod, node *corev1.Node, anno map[string]string, poli
 		if usage > targetThreshold {
 			klog.V(6).Infof("Predicate pod: %s, node: %s, out of %s, usage=%v,targetThreshold=%v", klog.KObj(pod), node.Name,
 				predicatePolicy.Name, usage, targetThreshold)
-			thresholdExceedCounts ++
+			thresholdExceedCounts++
 		}
 	}
 

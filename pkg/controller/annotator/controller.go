@@ -14,6 +14,7 @@ import (
 
 	craneschedinformers "git.woa.com/crane/api/pkg/generated/informers/externalversions/scheduling/v1alpha1"
 	craneschedlisters "git.woa.com/crane/api/pkg/generated/listers/scheduling/v1alpha1"
+	annotatorconfig "github.com/gocrane/crane-scheduler/pkg/controller/annotator/config"
 	"github.com/gocrane/crane-scheduler/pkg/controller/metrics"
 	"github.com/gocrane/crane-scheduler/pkg/plugins/apis/policy"
 )
@@ -39,8 +40,9 @@ type Controller struct {
 	kubeClient   clientset.Interface
 	metricClient metrics.MetricClient
 
-	policy         policy.DynamicSchedulerPolicy
-	bindingRecords *BindingRecords
+	policy          policy.DynamicSchedulerPolicy
+	bindingRecords  *BindingRecords
+	annotatorConfig *annotatorconfig.AnnotatorConfiguration
 }
 
 // NewController returns a Node Annotator object.
@@ -52,7 +54,7 @@ func NewNodeAnnotator(
 	kubeClient clientset.Interface,
 	metricClient metrics.MetricClient,
 	policy policy.DynamicSchedulerPolicy,
-	bindingHeapSize int32,
+	annotatorConfig *annotatorconfig.AnnotatorConfiguration,
 ) *Controller {
 	return &Controller{
 		nodeInformer:        nodeInformer,
@@ -70,7 +72,8 @@ func NewNodeAnnotator(
 		kubeClient:          kubeClient,
 		metricClient:        metricClient,
 		policy:              policy,
-		bindingRecords:      NewBindingRecords(bindingHeapSize, getMaxHotVauleTimeRange(policy.Spec.HotValue)),
+		bindingRecords:      NewBindingRecords(annotatorConfig.BindingHeapSize, getMaxHotVauleTimeRange(policy.Spec.HotValue)),
+		annotatorConfig:     annotatorConfig,
 	}
 }
 
@@ -92,14 +95,17 @@ func (c *Controller) Run(worker int, stopCh <-chan struct{}) error {
 	klog.Info("Caches are synced for controller")
 
 	for i := 0; i < worker; i++ {
-		go wait.Until(nodeController.Run, time.Second, stopCh)
-		go wait.Until(eventController.Run, time.Second, stopCh)
+		if c.annotatorConfig.EnableDynamicAnnotatorController {
+			go wait.Until(nodeController.Run, time.Second, stopCh)
+			go wait.Until(eventController.Run, time.Second, stopCh)
+		}
 		go wait.Until(cnrpController.Run, time.Second, stopCh)
 	}
 
-	go wait.Until(c.bindingRecords.BindingsGC, time.Minute, stopCh)
-
-	nodeController.CreateMetricSyncTicker(stopCh)
+	if c.annotatorConfig.EnableDynamicAnnotatorController {
+		go wait.Until(c.bindingRecords.BindingsGC, time.Minute, stopCh)
+		nodeController.CreateMetricSyncTicker(stopCh)
+	}
 
 	<-stopCh
 	return nil

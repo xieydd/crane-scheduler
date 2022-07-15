@@ -17,6 +17,9 @@ type AnnotatorConfiguration struct {
 	// CloudConfig is the cloud provider config
 	CloudConfig CloudConfig
 
+	// EnableDynamicAnnotatorController enable the node load & binding hot score annotator
+	EnableDynamicAnnotatorController bool
+
 	// DataSource is the datasource type, prometheus or qcloud monitor
 	DataSource string
 	// DataSourcePromConfig is the prometheus datasource config

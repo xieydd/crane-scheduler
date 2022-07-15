@@ -42,6 +42,22 @@ func GetLocation() *time.Location {
 	return loc
 }
 
+func GetNodeAnnotationWithPrefix(node *v1.Node, prefixList []string) map[string]string {
+	result := make(map[string]string)
+	anns := node.GetAnnotations()
+	if anns == nil {
+		return result
+	}
+	for k, v := range anns {
+		for _, prefix := range prefixList {
+			if strings.HasPrefix(k, prefix) {
+				result[k] = v
+			}
+		}
+	}
+	return result
+}
+
 func IsCraneExpansionPrefix(key string) bool {
 	return strings.HasPrefix(key, schedulingapi.AnnotationPrefixSchedulingExpansion)
 }
@@ -88,7 +104,7 @@ func GetCraneAnnotations(annotations map[string]string) map[string]string {
 	return result
 }
 
-func GetDswCraneAnnotations(annotations map[string]string) map[string]string {
+func GetDswCraneStaticAnnotations(annotations map[string]string) map[string]string {
 	result := make(map[string]string)
 	for k, v := range annotations {
 		if IsCraneExpansionPrefix(k) {

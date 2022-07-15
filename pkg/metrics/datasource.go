@@ -1,12 +1,12 @@
 package metrics
 
 import (
-	"k8s.io/kubernetes/pkg/util/maps"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/component-base/metrics"
+	"k8s.io/kubernetes/pkg/util/maps"
 
 	"github.com/gocrane/crane-scheduler/pkg/metricquery"
 )

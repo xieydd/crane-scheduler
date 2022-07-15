@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -22,6 +23,8 @@ import (
 type cnrpController struct {
 	*Controller
 	queue workqueue.RateLimitingInterface
+	// record lastest cnrp. for rm cnrp use
+	cnrps sync.Map
 }
 
 func newClusterNodeResourcePolicyController(c *Controller) *cnrpController {
@@ -30,6 +33,7 @@ func newClusterNodeResourcePolicyController(c *Controller) *cnrpController {
 
 	return &cnrpController{
 		Controller: c,
+		cnrps:      sync.Map{},
 		queue:      workqueue.NewNamedRateLimitingQueue(nodeRateLimiter, "cnrp_queue"),
 	}
 }
@@ -53,7 +57,11 @@ func (n *cnrpController) processNextWorkItem() bool {
 	forget, after, err := n.syncCNRP(key.(string))
 	if err != nil {
 		klog.Warningf("Failed to sync this cnrp [%q]: %v", key.(string), err)
+		if errors.IsNotFound(err) {
+			return true
+		}
 	}
+
 	if forget {
 		n.queue.Forget(key)
 	}
@@ -82,11 +90,25 @@ func (n *cnrpController) syncCNRP(key string) (bool, time.Duration, error) {
 	cnrp, err := n.cnrpLister.Get(cnrpName)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return true, 0, fmt.Errorf("can not find cnrp[%s]: %v, maybe already deleted", cnrpName, err)
+			latestCnrpPtr, ok := n.cnrps.Load(key)
+			if !ok {
+				return true, 0, err
+			}
+			latestCnrp, ok := latestCnrpPtr.(*schedulingapi.ClusterNodeResourcePolicy)
+			if !ok {
+				return true, 0, err
+			}
+			err = n.handleCNRPDeleted(latestCnrp)
+			if err != nil {
+				return false, 0, err
+			}
+			n.cnrps.Delete(key)
+			return true, 0, nil
 		} else {
 			return false, 0, fmt.Errorf("failed to get cnrp[%s]: %v", key, err)
 		}
 	}
+	n.cnrps.Store(key, cnrp)
 
 	switch cnrp.Spec.ApplyMode {
 	case schedulingapi.NodeResourceApplyModeCRD:
@@ -101,6 +123,40 @@ func (n *cnrpController) syncCNRP(key string) (bool, time.Duration, error) {
 	}
 
 	return true, 30 * time.Second, nil
+}
+
+func (n *cnrpController) handleCNRPDeleted(policy *schedulingapi.ClusterNodeResourcePolicy) error {
+	selector, err := metav1.LabelSelectorAsSelector(&policy.Spec.NodeSelector)
+	if err != nil {
+		return err
+	}
+	nodes, err := n.nodeLister.List(selector)
+	if err != nil {
+		return err
+	}
+
+	var errs []error
+	dswAnns := map[string]string{}
+	for _, node := range nodes {
+		anns := node.GetAnnotations()
+		aswAnns := utils.GetCraneAnnotations(anns)
+		if !equality.Semantic.DeepEqual(&aswAnns, dswAnns) {
+			patchData, err := utils.BuildPatchBytes(aswAnns, dswAnns)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			_, err = n.kubeClient.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			if err != nil {
+				klog.Errorf("Failed to patch node %v: %v", node.Name, err)
+				errs = append(errs, err)
+			}
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("%v", errs)
+	}
+	return nil
 }
 
 func (n *cnrpController) handleClusterNodeResourcePolicyByAnn(policy *schedulingapi.ClusterNodeResourcePolicy) error {
@@ -150,7 +206,7 @@ func (n *cnrpController) handleClusterNodeResourcePolicyByAnn(policy *scheduling
 	var errs []error
 	for _, node := range nodes {
 		anns := node.GetAnnotations()
-		aswAnns := utils.GetDswCraneAnnotations(anns)
+		aswAnns := utils.GetDswCraneStaticAnnotations(anns)
 		if !equality.Semantic.DeepEqual(&aswAnns, &dswAnns) {
 			patchData, err := utils.BuildPatchBytes(aswAnns, dswAnns)
 			if err != nil {

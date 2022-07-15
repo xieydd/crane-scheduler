@@ -148,38 +148,38 @@ func patchNodeAnnotation(kubeClient clientset.Interface, node *v1.Node, key, val
 }
 
 func (n *nodeController) CreateMetricSyncTicker(stopCh <-chan struct{}) {
-
-	for _, p := range n.policy.Spec.SyncPeriod {
-		enqueueFunc := func(policy policy.SyncPolicy) {
-			cnrps, err := n.cnrpLister.List(labels.Everything())
+	enqueueFunc := func(policy policy.SyncPolicy) {
+		cnrps, err := n.cnrpLister.List(labels.Everything())
+		if err != nil {
+			panic(fmt.Errorf("failed to list cnrps: %v", err))
+		}
+		selectedNodes := sets.NewString()
+		// todo: also consider the nrp crd when it uses nrp crd mode to each node
+		for _, cnrp := range cnrps {
+			klog.V(6).Infof("Get cnrp: %v, policy: %+v, nodeSelector: %v", klog.KObj(cnrp), policy, cnrp.Spec.NodeSelector.String())
+			cnrpSelector, err := metav1.LabelSelectorAsSelector(&cnrp.Spec.NodeSelector)
 			if err != nil {
-				panic(fmt.Errorf("failed to list cnrps: %v", err))
+				klog.Errorf("Failed to convert label selector for cnrp: %v, policy: %v, err: %v", klog.KObj(cnrp), policy, err)
+				continue
 			}
-			selectedNodes := sets.NewString()
-			// todo: also consider the nrp crd when it uses nrp crd mode to each node
-			for _, cnrp := range cnrps {
-				cnrpSelector, err := metav1.LabelSelectorAsSelector(&cnrp.Spec.NodeSelector)
-				if err != nil {
-					klog.Errorf("Failed to convert label selector for cnrp %v: %v", klog.KObj(cnrp), err)
-					continue
-				}
-				nodes, err := n.nodeLister.List(cnrpSelector)
-				if err != nil {
-					klog.Errorf("Failed to list nodes for cnrp %v: %v", klog.KObj(cnrp), err)
-					continue
-				}
-				for _, node := range nodes {
-					selectedNodes.Insert(node.Name)
-				}
+			nodes, err := n.nodeLister.List(cnrpSelector)
+			if err != nil {
+				klog.Errorf("Failed to list nodes for cnrp: %v, policy: %v, err: %v", klog.KObj(cnrp), policy, err)
+				continue
 			}
-
-			for _, node := range selectedNodes.List() {
-				n.queue.Add(handlingMetaKeyWithMetricName(node, policy.Name))
+			for _, node := range nodes {
+				selectedNodes.Insert(node.Name)
 			}
 		}
+		klog.V(6).Infof("Get nodes need to update load. policy: %v, cnrp nums: %v, nodes: %v", policy, len(cnrps), selectedNodes.List())
 
+		for _, node := range selectedNodes.List() {
+			n.queue.Add(handlingMetaKeyWithMetricName(node, policy.Name))
+		}
+	}
+
+	for _, p := range n.policy.Spec.SyncPeriod {
 		enqueueFunc(p)
-
 		go func(policy policy.SyncPolicy) {
 			ticker := time.NewTicker(policy.Period.Duration)
 			defer ticker.Stop()
