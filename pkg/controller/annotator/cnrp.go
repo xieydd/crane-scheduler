@@ -203,6 +203,15 @@ func (n *cnrpController) handleClusterNodeResourcePolicyByAnn(policy *scheduling
 			dswAnns[key] = strconv.FormatInt(percent, 10)
 		}
 	}
+
+	evictThresholds := policy.Spec.Template.Spec.EvictLoadThreshold
+	if evictThresholds != nil {
+		for resource, percent := range evictThresholds.Percents {
+			key := utils.BuildCraneAnnotation(schedulingapi.AnnotationPrefixSchedulingBalanceEvict, resource.String())
+			dswAnns[key] = strconv.FormatInt(percent, 10)
+		}
+	}
+
 	var errs []error
 	for _, node := range nodes {
 		anns := node.GetAnnotations()

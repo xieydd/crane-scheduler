@@ -33,6 +33,8 @@ spec:
           metadata:
             type: object
           spec:
+            description: ScheduleApplyScope is a global config, use a crd is not suitable,
+              use configmap instead. so now it will be not used.
             properties:
               scheduleApplyScope:
                 description: ScheduleApplyScope

@@ -54,9 +54,9 @@ func IsOverLoad(pod *corev1.Pod, node *corev1.Node, anno map[string]string, poli
 			continue
 		}
 
-		// threshold was set as 0 means that the filter according to this metric is useless.
-		if targetThreshold <= 0 {
-			klog.V(6).Infof("Ignore the filter of pod[%s] metric[%s] from node[%s] for targetThreshold was set as 0", klog.KObj(pod), predicatePolicy.Name, node.Name)
+		// threshold lt 0 means that the filter according to this metric is useless.
+		if targetThreshold < 0 {
+			klog.V(6).Infof("Ignore the filter of pod[%s] metric[%s] from node[%s] for targetThreshold was set lt 0", klog.KObj(pod), predicatePolicy.Name, node.Name)
 			continue
 		}
 

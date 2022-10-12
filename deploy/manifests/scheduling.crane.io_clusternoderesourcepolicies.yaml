@@ -106,6 +106,17 @@ spec:
                         description: AutoResourceExpansion is the auto resource expansion
                           strategy, crane auto expansion the node resource
                         type: object
+                      evictLoadThreshold:
+                        description: EvictLoadThreshold is the trigger water level
+                          utilization percent for node will evict pod
+                        properties:
+                          percents:
+                            additionalProperties:
+                              format: int64
+                              type: integer
+                            description: Percents such as ['cpu':60]
+                            type: object
+                        type: object
                       resourceExpansionStrategyType:
                         default: static
                         description: ResourceExpansionStrategy is the node resource
@@ -135,8 +146,7 @@ spec:
                             additionalProperties:
                               format: int64
                               type: integer
-                            description: Percents is the node load threshold for each
-                              resource, such as 60, it is a percentage
+                            description: Percents such as ['cpu':60]
                             type: object
                         type: object
                       targetRef:

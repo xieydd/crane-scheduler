@@ -15,13 +15,13 @@ func (e Errno) GenMsg(msg string) string {
 
 //DB相关错误
 
-//http client相关错误
+// http client相关错误
 var COMPONENT_CLINET_COMMON_ERROR = Errno{Code: -30000, Msg: "COMPONENT_CLINET_COMMON_ERROR"}
 var COMPONENT_CLINET_HTTP_ERROR = Errno{Code: -30001, Msg: "COMPONENT_CLINET_HTTP_ERROR"}
 var COMPONENT_CLINET_UNPACK_ERROR = Errno{Code: -30002, Msg: "COMPONENT_CLINET_UNPACK_ERROR"}
 
-//TODO DashboardError中增加 嵌套的DashboardError类型,用来一层层传递错误
-//如 requestResultError -> norm Error ->master create Error
+// TODO DashboardError中增加 嵌套的DashboardError类型,用来一层层传递错误
+// 如 requestResultError -> norm Error ->master create Error
 type DashboardError struct {
 	Code int
 	Msg  string

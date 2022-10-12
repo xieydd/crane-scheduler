@@ -3,7 +3,7 @@ module github.com/gocrane/crane-scheduler
 go 1.17
 
 require (
-	git.woa.com/crane/api v0.4.1
+	git.woa.com/crane/api v0.4.2
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/pprof v1.3.0
@@ -26,7 +26,6 @@ require (
 	k8s.io/client-go v0.24.0
 	k8s.io/code-generator v0.24.0
 	k8s.io/component-base v0.24.0
-	k8s.io/klog v0.3.0
 	k8s.io/klog/v2 v2.60.1
 	k8s.io/kube-scheduler v0.0.0
 	k8s.io/kubernetes v1.24.0

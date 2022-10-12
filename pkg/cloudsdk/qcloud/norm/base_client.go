@@ -10,7 +10,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-//对方返回的请求中,code部分不为0,此时的code为对方返回的code,含义不等于内部Err中的code
+// 对方返回的请求中,code部分不为0,此时的code为对方返回的code,含义不等于内部Err中的code
 type RequestResultError struct {
 	Code int
 	Msg  string

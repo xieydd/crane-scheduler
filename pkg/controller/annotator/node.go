@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -167,7 +168,11 @@ func (n *nodeController) CreateMetricSyncTicker(stopCh <-chan struct{}) {
 				klog.Errorf("Failed to list nodes for cnrp: %v, policy: %v, err: %v", klog.KObj(cnrp), policy, err)
 				continue
 			}
+
 			for _, node := range nodes {
+				if !strings.Contains(node.Spec.ProviderID, "tencentcloud") {
+					continue
+				}
 				selectedNodes.Insert(node.Name)
 			}
 		}

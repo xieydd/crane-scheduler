@@ -65,7 +65,7 @@ func NewNormClient() *NormClient {
 	return c
 }
 
-//从环境变量中获取clusterID和appId放入norm的para中 for meta clustercache
+// 从环境变量中获取clusterID和appId放入norm的para中 for meta clustercache
 func SetNormReqExt(body []byte) []byte {
 	js, err := simplejson.NewJson(body)
 	if err != nil {

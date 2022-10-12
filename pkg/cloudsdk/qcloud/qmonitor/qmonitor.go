@@ -23,6 +23,7 @@ const (
 	REQUEST_TIME_LAYOUT = "2006-01-02T15:15:50"
 )
 
+// Ref: https://cloud.tencent.com/document/product/248/53821
 var (
 	// Namesapce
 	MetricsNamespace = "QCE/TKE2"

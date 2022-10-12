@@ -70,6 +70,10 @@ func IsCraneLoadBalanceLoadPrefix(key string) bool {
 	return strings.HasPrefix(key, schedulingapi.AnnotationPrefixSchedulingBalanceLoad)
 }
 
+func IsCraneEvictBalancePrefix(key string) bool {
+	return strings.HasPrefix(key, schedulingapi.AnnotationPrefixSchedulingBalanceEvict)
+}
+
 func BuildCraneAnnotation(prefix, name string) string {
 	return strings.Join([]string{prefix, name}, "/")
 }
@@ -98,6 +102,8 @@ func GetCraneAnnotations(annotations map[string]string) map[string]string {
 		} else if IsCraneLoadBalanceTargetPrefix(k) {
 			result[k] = v
 		} else if IsCraneLoadBalanceLoadPrefix(k) {
+			result[k] = v
+		} else if IsCraneEvictBalancePrefix(k) {
 			result[k] = v
 		}
 	}

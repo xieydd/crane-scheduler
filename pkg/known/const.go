@@ -17,7 +17,7 @@ const (
 	GB = 1024 * 1024 * 1024
 )
 
-//Tags/Dimensions/Labels
+// Tags/Dimensions/Labels
 // this is an abstract inter-mediate labels name, different data source has different label naming which point to the same meaning
 const (
 	LabelAppId         = "appid"

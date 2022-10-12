@@ -14,7 +14,6 @@ LDFLAGS = "-X github.com/gocrane/crane-scheduler/pkg/version.gitVersion=$(GIT_VE
                       -X github.com/gocrane/crane-scheduler/pkg/version.gitCommit=$(GIT_COMMIT_HASH) \
                       -X github.com/gocrane/crane-scheduler/pkg/version.gitTreeState=$(GIT_TREESTATE) \
                       -X github.com/gocrane/crane-scheduler/pkg/version.buildDate=$(BUILDDATE)"
-
 # Images management
 REGISTRY ?= docker.io
 REGISTRY_NAMESPACE ?= gocrane
@@ -123,6 +122,9 @@ helmhook: ## Build binary with the helmhook.
 .PHONY: images
 images: image-scheduler image-controller image-helmhook
 
+.PHONY: images-dev
+images-dev: image-scheduler-dev image-controller-dev image-helmhook-dev
+
 .PHONY: image-scheduler
 image-scheduler: ## Build docker image with the crane scheduler.
 	docker build --build-arg LDFLAGS=$(LDFLAGS) --build-arg PKGNAME=scheduler -t ${SCHEDULER_IMG} .
@@ -134,6 +136,29 @@ image-controller: ## Build docker image with the controller.
 .PHONY: image-helmhook
 image-helmhook: ## Build docker image with the helmhook.
 	docker build --build-arg LDFLAGS=$(LDFLAGS) --build-arg PKGNAME=helmhook -t ${HELMHOOK_IMG} .
+
+.PHONY: image-scheduler-dev
+image-scheduler-dev: ## Build docker image with the crane scheduler.
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags=${LDFLAGS} -o _output/bin/scheduler cmd/scheduler/main.go
+	docker build --build-arg NAME=scheduler -t ${SCHEDULER_IMG} -f Dockerfile.dev .
+
+.PHONY: image-controller-dev
+image-controller-dev: ## Build docker image with the controller.
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags=${LDFLAGS} -o _output/bin/controller cmd/controller/main.go
+	docker build --build-arg NAME=controller -t ${CONTROLLER_IMG} -f Dockerfile.dev .
+
+.PHONY: image-helmhook-dev
+image-helmhook-dev: ## Build docker image with the helmhook.
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags=${LDFLAGS} -o _output/bin/helmhook cmd/helmhook/main.go
+	docker build --build-arg NAME=helmhook -t ${HELMHOOK_IMG} -f Dockerfile.dev .
+
+.PHONY: push-images-dev
+push-images-dev: 
+	 docker push ${SCHEDULER_IMG}
+	 docker push ${CONTROLLER_IMG}
+	 docker push ${HELMHOOK_IMG}
+
+
 
 .PHONY: push-images
 push-images: push-image-scheduler push-image-controller push-image-helmhook
