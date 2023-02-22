@@ -124,6 +124,31 @@ image-controller: ## Build docker image with the controller.
 .PHONY: push-images
 push-images: push-image-scheduler push-image-controller
 
+
+.PHONY: images-dev
+images-dev: image-scheduler-dev image-controller-dev image-helmhook-dev
+
+.PHONY: image-scheduler-dev
+image-scheduler-dev: ## Build docker image with the crane scheduler.
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags=${LDFLAGS} -o _output/bin/scheduler cmd/scheduler/main.go
+	docker build --build-arg NAME=scheduler -t ${SCHEDULER_IMG} -f Dockerfile.dev .
+
+.PHONY: image-controller-dev
+image-controller-dev: ## Build docker image with the controller.
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags=${LDFLAGS} -o _output/bin/controller cmd/controller/main.go
+	docker build --build-arg NAME=controller -t ${CONTROLLER_IMG} -f Dockerfile.dev .
+
+.PHONY: image-helmhook-dev
+image-helmhook-dev: ## Build docker image with the helmhook.
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags=${LDFLAGS} -o _output/bin/helmhook cmd/helmhook/main.go
+	docker build --build-arg NAME=helmhook -t ${HELMHOOK_IMG} -f Dockerfile.dev .
+
+.PHONY: push-images-dev
+push-images-dev: 
+	 docker push ${SCHEDULER_IMG}
+	 docker push ${CONTROLLER_IMG}
+	 docker push ${HELMHOOK_IMG}
+
 .PHONY: push-image-scheduler
 push-image-scheduler: ## Push images.
 ifneq ($(REGISTRY_USER_NAME), "")
