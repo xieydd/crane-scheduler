@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: crane-descheduler
+  name: crane-descheduler
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crane-descheduler
+  template:
+    metadata:
+      name: crane-descheduler
+      labels:
+        app: crane-descheduler
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+    spec:
+      containers:
+        - name: descheduler
+          env:
+            - name: TZ
+              value: Asia/Shanghai
+          image: {{ .Values.global.image.host }}/tkeimages/descheduler:v1.0.2
+          imagePullPolicy: Always
+          volumeMounts:
+            - mountPath: /policy-dir
+              name: policy-volume
+          command:
+            - "/descheduler"
+          args:
+            - "--policy-config-file"
+            - "/policy-dir/policy.yaml"
+            - "--dry-run=false"
+            - "--evict-local-storage-pods=true"
+            - "--descheduling-interval"
+            - "180s"
+            - --provider=qcloud
+            - --datasource=qcloudmonitor
+            - --qmonitor-credentials-clusterid={{ .Values.global.cluster.id }}
+            - --qmonitor-credentials-appid={{ .Values.global.cluster.appid }}
+            - --qmonitor-clientprofile-region={{ .Values.global.cluster.longregion }}
+            - "--enable-mysql-log=false"
+          resources:
+            requests:
+              memory: "200Mi"
+              cpu: "200m"
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8080
+            periodSeconds: 30
+            timeoutSeconds: 10
+            initialDelaySeconds: 30
+      dnsPolicy: ClusterFirst
+      hostNetwork: true
+      restartPolicy: "Always"
+      serviceAccountName: crane-descheduler
+      volumes:
+        - name: policy-volume
+          configMap:
+            name: crane-descheduler-policy

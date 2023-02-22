@@ -1,0 +1,19 @@
+# Default values for helm.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  image:
+    host: ccr.ccs.tencentyun.com
+  cluster:
+    id: cls-xxx
+    appid: 1234567
+    longregion: ap-beijing
+
+# for descheduler
+loadThreshold:
+  numberOfNodes: 3
+  maxCoresPercent: 0.2
+  enableDynamicThreshold:
+    enable: True
+    enableDefault: False 

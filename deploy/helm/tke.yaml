@@ -1,0 +1,1 @@
+'{"urlPrefix": "http://crane-scheduler.kube-system:8088/scheduler","filterVerb": "predicates/safe-overload","prioritizeVerb": "priorities/safe-balance","weight": 2,"enableHttps": False,"nodeCacheCapable": False,"ignorable": True}'
