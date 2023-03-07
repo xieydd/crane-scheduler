@@ -43,10 +43,10 @@ func PriorityFunc(pod corev1.Pod, nodes []corev1.Node, policySpec policy.PolicyS
 			Score: score,
 		}
 
-		// for non-housekeeper-scoped pods, normal nodes score zero directly but for housekeeper node we do load balance score so housekeeper has some more capability
+		// for non-housekeeper-scoped pods, normal nodes score zero directly but for housekeeper or metacluster node we do load balance score so housekeeper has some more capability
 		// this is an product policy for housekeeper migration and sell
-		//if !utils.IsHouseKeeperScopePod(&pod) && !utils.IsHouseKeeperNode(&node) {
-		if !utils.IsHouseKeeperScopePod(&pod) {
+		if !utils.IsHouseKeeperScopePod(&pod) && (!utils.IsHouseKeeperNode(&node) ||
+			!utils.NodeHaveSpecificLabel(&node, known.LabelDynamicSchedulerNodeKey, known.LabelDynamicSchedulerNodeVal)) {
 			priorityList[i].Score = 0
 		}
 

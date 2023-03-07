@@ -74,10 +74,10 @@ func predicate(pod corev1.Pod, node corev1.Node, policySpec policy.PolicySpec) (
 		metrics.ExtenderPredicateNodeLatency.With(labels).Observe(time.Since(start).Seconds())
 	}()
 
-	// for non-housekeeper-scoped pods, normal nodes pass directly but for housekeeper node we do load balance so housekeeper has some more capability
+	// for non-housekeeper-scoped pods, normal nodes pass directly but for housekeeper or metacluster node we do load balance so housekeeper has some more capability
 	// this is an product policy for housekeeper migration and sell
-	//if !utils.IsHouseKeeperScopePod(&pod) && !utils.IsHouseKeeperNode(&node) {
-	if !utils.IsHouseKeeperScopePod(&pod) {
+	if !utils.IsHouseKeeperScopePod(&pod) && (!utils.IsHouseKeeperNode(&node) ||
+		!utils.NodeHaveSpecificLabel(&node, known.LabelDynamicSchedulerNodeKey, known.LabelDynamicSchedulerNodeVal)) {
 		return true, framework.NewStatus(framework.Success)
 	}
 

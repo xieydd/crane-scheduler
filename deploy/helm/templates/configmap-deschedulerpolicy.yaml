@@ -1,3 +1,4 @@
+{{ if .Values.descheduler.enabled -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -20,9 +21,9 @@ data:
              numberOfNodes: {{ .Values.loadThreshold.numberOfNodes }} 
              maxCoresPercent: {{ .Values.loadThreshold.maxCoresPercent }} 
              enableDynamicThreshold: 
-               enable: {{ .Values.loadThreshold.enableDynamicThreshold.enable }} 
-               enableDefault: {{ .Values.loadThreshold.enableDynamicThreshold.enableDefault }} 
-             {{- if eq (.Values.loadThreshold.enableDynamicThreshold.enableDefault | toString) "True" }} 
+               enable: {{ .Values.loadThreshold.enableDynamicThreshold.enabled }} 
+               enableDefault: {{ .Values.loadThreshold.enableDynamicThreshold.enabledDefault }} 
+             {{- if eq (.Values.loadThreshold.enableDynamicThreshold.enabledDefault | toString) "True" }} 
              thresholds:
                "cpu": {{ .Values.loadThreshold.cpuAvgUsage5M }}
                "memory": {{ .Values.loadThreshold.memAvgUsage5M }}
@@ -37,3 +38,4 @@ data:
            configValues:
              "containercheck": "100"
              "policy": "restartlocal"
+{{- end }}

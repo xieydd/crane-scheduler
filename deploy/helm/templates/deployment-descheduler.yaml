@@ -1,3 +1,4 @@
+{{ if .Values.descheduler.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -23,7 +24,7 @@ spec:
           env:
             - name: TZ
               value: Asia/Shanghai
-          image: {{ .Values.global.image.host }}/tkeimages/descheduler:v1.0.2
+          image: {{ .Values.global.image.host }}/{{ .Values.global.image.repo }}/descheduler:{{ .Values.global.image.tag }}
           imagePullPolicy: Always
           volumeMounts:
             - mountPath: /policy-dir
@@ -63,3 +64,4 @@ spec:
         - name: policy-volume
           configMap:
             name: crane-descheduler-policy
+{{- end }}

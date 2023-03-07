@@ -5,6 +5,8 @@
 global:
   image:
     host: ccr.ccs.tencentyun.com
+    repo: tkeimages
+    tag: v1.0.2
   cluster:
     id: cls-xxx
     appid: 1234567
@@ -15,5 +17,14 @@ loadThreshold:
   numberOfNodes: 3
   maxCoresPercent: 0.2
   enableDynamicThreshold:
-    enable: True
-    enableDefault: False 
+    enabled: true
+    enabledDefault: false 
+
+  # switch
+controller:
+  enabled: true 
+descheduler:
+  enabled: true
+scheduler:
+  enabled: true
+  

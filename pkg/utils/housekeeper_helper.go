@@ -41,3 +41,21 @@ func IsHouseKeeperNode(node *corev1.Node) bool {
 	}
 	return false
 }
+
+func NodeHaveSpecificLabel(node *corev1.Node, key, value string) bool {
+	if node == nil {
+		return false
+	}
+	labels := node.GetLabels()
+	if labels == nil {
+		return false
+	}
+	val, ok := labels[key]
+	if !ok {
+		return false
+	}
+	if val == value {
+		return true
+	}
+	return false
+}

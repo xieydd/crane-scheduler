@@ -1,4 +1,4 @@
----
+{{ if .Values.controller.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -37,7 +37,7 @@ spec:
             - --qmonitor-clientprofile-region={{ .Values.global.cluster.longregion }}
             - --webhook-enabled=true
             - --v=5
-          image: {{ .Values.global.image.host }}/tkeimages/crane-scheduler-controller:v1.0.2
+          image: {{ .Values.global.image.host }}/{{ .Values.global.image.repo }}/crane-scheduler-controller:{{ .Values.global.image.tag }}
           imagePullPolicy: Always
           volumeMounts:
             - mountPath: /data
@@ -72,3 +72,4 @@ metadata:
   name: crane-scheduler-webhook-server-tls
   namespace: kube-system
 type: kubernetes.io/tls
+{{- end }}

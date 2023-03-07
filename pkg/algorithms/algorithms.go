@@ -69,7 +69,7 @@ func IsOverLoad(pod *corev1.Pod, node *corev1.Node, anno map[string]string, poli
 	}
 
 	n := len(policySpec.Predicate)
-	if n > 0 && thresholdExceedCounts >= n {
+	if n > 0 && thresholdExceedCounts >= 0 {
 		klog.V(6).Infof("Predicate pod: %s, node: %s is overload, thresholdExceedCounts: %v, len(policySpec.Predicate): %v", klog.KObj(pod), node.Name, thresholdExceedCounts, n)
 		return true
 	}

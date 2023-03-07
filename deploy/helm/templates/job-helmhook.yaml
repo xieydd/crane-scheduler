@@ -1,3 +1,4 @@
+{{ if .Values.controller.enabled -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -26,7 +27,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: helmhook
-        image: {{ .Values.global.image.host }}/tkeimages/crane-scheduler-helmhook:v1.0.2
+        image: {{ .Values.global.image.host }}/{{ .Values.global.image.repo }}/crane-scheduler-helmhook:{{ .Values.global.image.tag }}
         imagePullPolicy: Always
         command:
           - /helmhook
@@ -36,3 +37,4 @@ spec:
           - --clear-node-annotation-prefix=load.balance.scheduling.crane.io
           - --clear-node-annotation-prefix=evict.balance.scheduling.crane.io
           - --clear-node-annotation-prefix=expansion.scheduling.crane.io
+{{- end }}

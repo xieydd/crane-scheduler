@@ -1,3 +1,4 @@
+{{ if .Values.scheduler.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -29,7 +30,7 @@ spec:
             - --server-enable-profiling=true
             - --server-enable-metrics=true
             - --v=6
-          image: {{ .Values.global.image.host }}/tkeimages/crane-scheduler:v1.0.2
+          image: {{ .Values.global.image.host }}/{{ .Values.global.image.repo }}/crane-scheduler:{{ .Values.global.image.tag }}
           imagePullPolicy: Always
           readinessProbe:
             tcpSocket:
@@ -61,3 +62,4 @@ spec:
             defaultMode: 420
             name: crane-scheduler-policy
           name: crane-scheduler-policy
+{{- end }}

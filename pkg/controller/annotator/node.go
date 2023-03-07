@@ -170,10 +170,15 @@ func (n *nodeController) CreateMetricSyncTicker(stopCh <-chan struct{}) {
 			}
 
 			for _, node := range nodes {
-				if !strings.Contains(node.Spec.ProviderID, "tencentcloud") {
+				// for housekeeper node : node spec providerid container tencentcloud
+				// for metacluster: node label contain specific label and key
+				if strings.Contains(node.Spec.ProviderID, "tencentcloud") ||
+					utils.NodeHaveSpecificLabel(node, known.LabelAnnotateNodeKey, known.LabelAnnotateNodeVal) {
+					selectedNodes.Insert(node.Name)
+				} else {
 					continue
 				}
-				selectedNodes.Insert(node.Name)
+
 			}
 		}
 		klog.V(6).Infof("Get nodes need to update load. policy: %v, cnrp nums: %v, nodes: %v", policy, len(cnrps), selectedNodes.List())

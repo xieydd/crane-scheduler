@@ -35,6 +35,12 @@ const (
 	// checked with @jerryachen
 	LabelHousekeeperNodeKey = "cloud.tencent.com/provider"
 	LabelHousekeeperNodeVal = "tencentcloud"
+
+	LabelDynamicSchedulerNodeKey = "enabled.dynamicscheduler.crane.io"
+	LabelDynamicSchedulerNodeVal = "true"
+
+	LabelAnnotateNodeKey = "enabled.annotatenode.crane.io"
+	LabelAnnotateNodeVal = "true"
 )
 
 const (
